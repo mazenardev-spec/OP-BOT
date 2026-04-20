@@ -18,17 +18,49 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- 2. إعداد البوت والترحيب التلقائي ---
+# --- 2. إعداد البوت وأنظمة التفاعل الجديدة ---
+
+class TicketActions(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="قفل التذكرة", style=discord.ButtonStyle.danger, custom_id="close_t")
+    async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("سيتم غلق القناة...")
+        await interaction.channel.delete()
+
+    @discord.ui.button(label="استلام", style=discord.ButtonStyle.success, custom_id="claim_t")
+    async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(f"تم الاستلام بواسطة: {interaction.user.mention}")
+
+class TicketView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="فتح تذكرة", style=discord.ButtonStyle.primary, custom_id="open_t")
+    async def open(self, interaction: discord.Interaction, button: discord.ui.Button):
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+            interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+        channel = await interaction.guild.create_text_channel(name=f"ticket-{interaction.user.name}", overwrites=overwrites)
+        await channel.send(f"مرحباً {interaction.user.mention}، سيتم الرد عليك قريباً.", view=TicketActions())
+        await interaction.response.send_message(f"تم فتح التذكرة: {channel.mention}", ephemeral=True)
+
 class OPBot(discord.Client):
     def __init__(self):
         intents = discord.Intents.all()
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
+        self.welcome_channels = {} # لتخزين قناة الترحيب المحددة
 
     async def setup_hook(self):
+        self.add_view(TicketView())
+        self.add_view(TicketActions())
         await self.tree.sync()
         self.loop.create_task(self.update_status())
-        print(f"✅ {self.user} جاهز بـ 60 أمر مع نظام الترحيب!")
+        print(f"✅ {self.user} جاهز مع نظام التيكت والترحيب المخصص!")
 
     async def update_status(self):
         await self.wait_until_ready()
@@ -37,16 +69,16 @@ class OPBot(discord.Client):
             await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=status))
             await asyncio.sleep(1800)
 
-    # نظام الترحيب الذكي للبوت العام
+    # نظام الترحيب الجديد (يعتمد على اختيارك للروم)
     async def on_member_join(self, member):
-        channel = discord.utils.get(member.guild.text_channels, name="welcome") or \
-                  discord.utils.get(member.guild.text_channels, name="ترحيب") or \
-                  member.guild.system_channel
-        if channel:
-            embed = discord.Embed(title="✨ عضو جديد وصل!", description=f"نورت السيرفر يا {member.mention}", color=0x00ff00)
-            embed.set_thumbnail(url=member.display_avatar.url)
-            try: await channel.send(embed=embed)
-            except: pass
+        ch_id = self.welcome_channels.get(member.guild.id)
+        if ch_id:
+            channel = member.guild.get_channel(ch_id)
+            if channel:
+                embed = discord.Embed(title="✨ عضو جديد وصل!", description=f"نورت السيرفر يا {member.mention}", color=0x00ff00)
+                embed.set_thumbnail(url=member.display_avatar.url)
+                try: await channel.send(embed=embed)
+                except: pass
 
 bot = OPBot()
 
@@ -60,13 +92,29 @@ def save_db(data):
     with open("op_data.json", "w") as f: json.dump(data, f, indent=4)
 
 # ==========================================
-# 4. أوامر الإدارة (15 أمر)
+# 4. الأوامر الجديدة (Ticket & Welcome)
+# ==========================================
+
+@bot.tree.command(name="set-ticket", description="إعداد نظام التذاكر في روم معينة")
+@app_commands.checks.has_permissions(administrator=True)
+async def set_ticket(i: discord.Interaction, channel: discord.TextChannel):
+    await channel.send("اضغط على الزر أدناه لفتح تذكرة دعم فني", view=TicketView())
+    await i.response.send_message("✅ تم إعداد نظام التيكت.", ephemeral=True)
+
+@bot.tree.command(name="set-welcome", description="تحديد روم الترحيب")
+@app_commands.checks.has_permissions(administrator=True)
+async def set_welcome(i: discord.Interaction, channel: discord.TextChannel):
+    bot.welcome_channels[i.guild.id] = channel.id
+    await i.response.send_message(f"✅ تم تعيين {channel.mention} كروم ترحيب.")
+
+# ==========================================
+# 5. أوامر الإدارة (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="help", description="دليل أوامر OP BOT الشامل")
 async def help_cmd(i: discord.Interaction):
     embed = discord.Embed(title="📚 أوامر OP BOT", color=0x00ff00)
-    embed.add_field(name="🛡️ إدارة", value="`timeout`, `untimeout`, `ban`, `kick`, `clear`, `lock`, `unlock`, `hide`, `show`, `slowmode`, `warn`, `unban`, `nick`, `add-role`, `remove-role`")
+    embed.add_field(name="🛡️ إدارة وإعداد", value="`set-ticket`, `set-welcome`, `timeout`, `untimeout`, `ban`, `kick`, `clear`, `lock`, `unlock`, `hide`, `show`, `slowmode`, `warn`, `unban`, `nick`, `add-role`, `remove-role`")
     embed.add_field(name="💰 اقتصاد", value="`daily`, `credits`, `work`, `transfer`, `top`, `rob`, `fish`, `hunt`, `give`, `coin`, `salary`, `shop`, `buy`, `wallet`, `bank-info`")
     embed.add_field(name="🎮 ترفيه", value="`xo`, `dice`, `iq`, `love`, `hack`, `slap`, `kill`, `hug`, `punch`, `joke`, `slots`, `ship`, `hot`, `choose`, `wanted`")
     embed.add_field(name="ℹ️ معلومات", value="`user`, `server`, `avatar`, `ping`, `bot-id`, `channel-id`, `guild-id`, `roles-count`, `boosts`, `owner`, `uptime`, `math`, `say`, `invite`, `perms`")
@@ -74,7 +122,7 @@ async def help_cmd(i: discord.Interaction):
 
 @bot.tree.command(name="timeout", description="إسكات عضو لفترة محددة")
 async def timeout(i: discord.Interaction, member: discord.Member, minutes: int):
-    if not i.user.guild_permissions.moderate_members: return await i.response.send_message("❌", ephemeral=True)
+    if not i.user.guild_permissions.moderate_members: return
     await member.timeout(timedelta(minutes=minutes)); await i.response.send_message(f"🔇 {member.mention}")
 
 @bot.tree.command(name="untimeout", description="إزالة الإسكات عن عضو")
@@ -149,7 +197,7 @@ async def remove_role(i: discord.Interaction, member: discord.Member, role: disc
     await member.remove_roles(role); await i.response.send_message("❌")
 
 # ==========================================
-# 5. أوامر الاقتصاد (15 أمر)
+# 6. أوامر الاقتصاد (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="daily", description="استلام الراتب اليومي")
@@ -214,7 +262,7 @@ async def wallet(i: discord.Interaction): await i.response.send_message("👛")
 async def binfo(i: discord.Interaction): await i.response.send_message("🛡️ بنك مؤمن")
 
 # ==========================================
-# 6. أوامر الترفيه (15 أمر)
+# 7. أوامر الترفيه (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="xo", description="لعبة XO")
@@ -263,7 +311,7 @@ async def choose(i: discord.Interaction, a: str, b: str): await i.response.send_
 async def wanted(i: discord.Interaction, m: discord.Member=None): await i.response.send_message("⚠️ Wanted!")
 
 # ==========================================
-# 7. أوامر المعلومات (15 أمر)
+# 8. أوامر المعلومات (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="user", description="معلومات الحساب")
@@ -317,7 +365,7 @@ async def invite(i: discord.Interaction):
 async def perms(i: discord.Interaction): await i.response.send_message("✅ جاهز")
 
 # ==========================================
-# 8. التشغيل
+# 9. التشغيل
 # ==========================================
 
 if __name__ == "__main__":
