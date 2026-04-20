@@ -3,8 +3,24 @@ from discord import app_commands
 from discord.ui import Button, View
 import random, asyncio, json, os
 from datetime import timedelta
+from flask import Flask
+from threading import Thread
 
-# --- 1. إعداد البوت والـ Presence الاحترافي ---
+# --- 1. نظام الـ Keep Alive (عشان السيرفر ميفصلش) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "OP BOT is Online and Ready!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- 2. إعداد البوت والـ Presence الاحترافي ---
 class OPBot(discord.Client):
     def __init__(self):
         intents = discord.Intents.all()
@@ -17,17 +33,16 @@ class OPBot(discord.Client):
         print(f"✅ {self.user} جاهز للعمل بـ 60 أمر!")
 
     async def update_status(self):
-        """تحديث الحالة مثل صورة Nova: /help — {عدد السيرفرات} servers"""
         await self.wait_until_ready()
         while not self.is_closed():
             guild_count = len(self.guilds)
             status = f"/help — {guild_count} servers"
             await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=status))
-            await asyncio.sleep(1800) # تحديث كل 30 دقيقة لضمان دقة عدد السيرفرات
+            await asyncio.sleep(1800)
 
 bot = OPBot()
 
-# --- 2. نظام قاعدة البيانات ---
+# --- 3. نظام قاعدة البيانات ---
 def load_db():
     if not os.path.exists("op_data.json"):
         with open("op_data.json", "w") as f: 
@@ -38,7 +53,7 @@ def save_db(data):
     with open("op_data.json", "w") as f: json.dump(data, f, indent=4)
 
 # ==========================================
-# 3. أمر المساعدة الشامل (/help)
+# 4. أمر المساعدة الشامل (/help)
 # ==========================================
 
 @bot.tree.command(name="help", description="عرض جميع أوامر OP BOT الـ 60")
@@ -51,7 +66,7 @@ async def help_cmd(i: discord.Interaction):
     await i.response.send_message(embed=embed)
 
 # ==========================================
-# 4. أوامر الإدارة مع فحص الصلاحيات (15 أمر)
+# 5. أوامر الإدارة (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="timeout", description="إسكات عضو")
@@ -131,7 +146,7 @@ async def remove_role(i: discord.Interaction, member: discord.Member, role: disc
     await member.remove_roles(role); await i.response.send_message("❌ تم سحب الرتبة")
 
 # ==========================================
-# 5. أوامر الاقتصاد (15 أمر)
+# 6. أوامر الاقتصاد (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="daily", description="استلام الراتب اليومي")
@@ -196,7 +211,7 @@ async def wallet(i: discord.Interaction): await i.response.send_message("👛 م
 async def binfo(i: discord.Interaction): await i.response.send_message("🛡️ محمي بواسطة OP")
 
 # ==========================================
-# 6. أوامر الترفيه (15 أمر)
+# 7. أوامر الترفيه (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="xo", description="لعبة XO")
@@ -245,7 +260,7 @@ async def choose(i: discord.Interaction, a: str, b: str): await i.response.send_
 async def wanted(i: discord.Interaction, m: discord.Member=None): await i.response.send_message("⚠️ مطلوب حياً أو ميتاً")
 
 # ==========================================
-# 7. أوامر المعلومات (15 أمر)
+# 8. أوامر المعلومات (15 أمر)
 # ==========================================
 
 @bot.tree.command(name="user", description="معلومات حسابك")
@@ -282,7 +297,7 @@ async def boosts(i: discord.Interaction): await i.response.send_message(i.guild.
 async def owner(i: discord.Interaction): await i.response.send_message(i.guild.owner.mention)
 
 @bot.tree.command(name="uptime", description="وقت التشغيل")
-async def uptime(i: discord.Interaction): await i.response.send_message("🚀 Online")
+async def uptime(i: discord.Interaction): await i.response.send_message("🚀 Online and Stable")
 
 @bot.tree.command(name="math", description="عملية حسابية")
 async def math(i: discord.Interaction, x: int, y: int): await i.response.send_message(f"🔢 الناتج: {x+y}")
@@ -296,18 +311,18 @@ async def invite(i: discord.Interaction): await i.response.send_message("🔗 ر
 @bot.tree.command(name="perms", description="صلاحيات البوت")
 async def perms(i: discord.Interaction): await i.response.send_message("✅ مفعلة بالكامل")
 
-# --- 8. التشغيل الآمن والذكي ---
+# ==========================================
+# 9. التشغيل النهائي والآمن
+# ==========================================
 
 if __name__ == "__main__":
-    # تشغيل نظام الـ Keep Alive عشان البوت ما يطفيش على Render
-    keep_alive() 
+    keep_alive() # تشغيل السيرفر لضمان بقاء البوت أونلاين
     
-    # هنا بنقول للبوت اقرأ التوكين من إعدادات Render السرية (Environment Variables)
-    # عشان GitHub ما يبعتلكش رسائل تحذير تاني
-    TOKEN = os.getenv("MTQ5NTgwNzI0NTg1NjgwNDk3Ng.GouKiJ.wyQMTl8KOgAEqTmyjSMuFFuCP75b_zB2Q9QXi4")
+    # سحب التوكن من Variables الموقع (DISCORD_TOKEN)
+    TOKEN = os.getenv("MTQ5NTgwNzI0NTg1NjgwNDk3Ng.GzJ-wk.o6QRT42orSjeqQHFYp8a9ym2f8uE_YCr6xkipI")
     
     if TOKEN:
-        # تشغيل البوت
-        asyncio.run(bot.start(TOKEN))
+        # تشغيل البوت باستخدام التوكن من الخزنة
+        bot.run(TOKEN)
     else:
-        print("❌ خطأ: لم يتم العثور على التوكين! تأكد من إضافته في Render باسم DISCORD_TOKEN")
+        print("❌ خطأ: لم يتم العثور على التوكين! تأكد من إضافته في Variables باسم DISCORD_TOKEN")
