@@ -304,7 +304,7 @@ if __name__ == "__main__":
     
     # هنا بنقول للبوت اقرأ التوكين من إعدادات Render السرية (Environment Variables)
     # عشان GitHub ما يبعتلكش رسائل تحذير تاني
-    TOKEN = os.getenv("MTQ5NTgwNzI0NTg1NjgwNDk3Ng.GgZDoM.V2y6J8iRamUv91CeNiNn0Ajilb0uGmFfBcA6DA")
+    TOKEN = os.getenv("MTQ5NTgwNzI0NTg1NjgwNDk3Ng.GouKiJ.wyQMTl8KOgAEqTmyjSMuFFuCP75b_zB2Q9QXi4")
     
     if TOKEN:
         # تشغيل البوت
