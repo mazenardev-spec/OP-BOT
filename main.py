@@ -319,8 +319,7 @@ if __name__ == "__main__":
     keep_alive() # تشغيل السيرفر لضمان بقاء البوت أونلاين
     
     # سحب التوكن من Variables الموقع (DISCORD_TOKEN)
-    TOKEN = os.getenv("MTQ5NTgwNzI0NTg1NjgwNDk3Ng.GzJ-wk.o6QRT42orSjeqQHFYp8a9ym2f8uE_YCr6xkipI")
-    
+bot.run(os.getenv("DISCORD_TOKEN"))    
     if TOKEN:
         # تشغيل البوت باستخدام التوكن من الخزنة
         bot.run(TOKEN)
