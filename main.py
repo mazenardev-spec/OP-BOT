@@ -6,14 +6,14 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template
 from threading import Thread
 
-# --- 1. نظام الداشبورد و الـ Keep Alive ---
+# --- 1. نظام الـ Keep Alive والداشبورد المطور ---
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     try:
+        # قراءة البيانات لعرضها في الداشبورد
         db = load_db()
-        # حساب إحصائيات سريعة للعرض في الداشبورد
         bank_data = db.get("bank", {})
         total_users = len(bank_data)
         total_money = sum(bank_data.values()) if bank_data else 0
@@ -24,7 +24,7 @@ def home():
                                users=total_users, 
                                economy=total_money)
     except Exception as e:
-        return f"Dashboard is online, but error loading stats: {e}"
+        return f"Dashboard is online, but waiting for data... Error: {e}"
 
 def run():
     app.run(host='0.0.0.0', port=8080)
@@ -33,7 +33,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- 2. قاعدة البيانات ---
+# --- 2. قاعدة البيانات (JSON) ---
 def load_db():
     if not os.path.exists("op_data.json"):
         with open("op_data.json", "w") as f:
@@ -338,7 +338,7 @@ async def bti(i): await i.response.send_message("OP BOT v5.0")
 @bot.tree.command(name="members", description="أعضاء")
 async def mem(i): await i.response.send_message(f"👥 {i.guild.member_count}")
 
-# --- التشغيل النهائي ---
+# --- التشغيل ---
 if __name__ == "__main__":
-    keep_alive() # تشغيل الداشبورد أونلاين
+    keep_alive() # تشغيل الداشبورد
     bot.run(os.getenv("DISCORD_TOKEN"))
