@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, redirect, session, url_for
 from threading import Thread
 from requests_oauthlib import OAuth2Session
 
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 # --- 1. إعدادات Flask و OAuth2 (بدون اختصار) ---
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -14,8 +16,7 @@ app.secret_key = os.urandom(24)
 # بيانات التطبيق - تأكد من وضعها في Discord Developer Portal
 CLIENT_ID = '1495807245856804976'
 CLIENT_SECRET = 'PKoJ6RyZGnM-YKuM-3el-z193iWS-H7T'
-REDIRECT_URI = 'https://op-bot-production.up.railway.app/callback' 
-
+REDIRECT_URI = 'https://op-bot-production.up.railway.app/callback'
 AUTH_BASE_URL = 'https://discord.com/api/oauth2/authorize'
 TOKEN_URL = 'https://discord.com/api/oauth2/token'
 
