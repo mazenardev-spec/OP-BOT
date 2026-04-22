@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <title>اختيار السيرفر</title>
+    <style>
+        body { background: #23272a; color: white; font-family: sans-serif; text-align: center; }
+        .guild-card { background: #2c2f33; padding: 20px; border-radius: 10px; display: inline-block; margin: 10px; width: 200px; }
+        .btn { background: #5865F2; color: white; padding: 8px; text-decoration: none; border-radius: 5px; display: block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>اختر سيرفر لإدارته</h1>
+    {% for guild in guilds %}
+    <div class="guild-card">
+        {% if guild.icon %}
+            <img src="https://cdn.discordapp.com/icons/{{guild.id}}/{{guild.icon}}.png" width="80" style="border-radius: 50%;">
+        {% endif %}
+        <h3>{{ guild.name }}</h3>
+        <a href="/manage/{{ guild.id }}" class="btn">إدارة السيرفر</a>
+    </div>
+    {% endfor %}
+</body>
+</html>
