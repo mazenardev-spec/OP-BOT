@@ -1,30 +1,51 @@
 import discord
 from discord import app_commands
 from discord.ui import Button, View, Modal, TextInput
-import random, asyncio, json, os, time
+import random, asyncio, json, os, time, requests
 from datetime import datetime, timedelta
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, session, url_for
 from threading import Thread
+from requests_oauthlib import OAuth2Session
 
-# --- 1. نظام الـ Keep Alive والداشبورد المطور ---
+# --- 1. إعدادات Flask و OAuth2 (بدون اختصار) ---
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+# بيانات التطبيق - تأكد من وضعها في Discord Developer Portal
+CLIENT_ID = '1495807245856804976'
+CLIENT_SECRET = 'PKoJ6RyZGnM-YKuM-3el-z193iWS-H7T'
+REDIRECT_URI = 'https://your-app-name.up.railway.app/callback' 
+
+AUTH_BASE_URL = 'https://discord.com/api/oauth2/authorize'
+TOKEN_URL = 'https://discord.com/api/oauth2/token'
 
 @app.route('/')
 def home():
     try:
-        # قراءة البيانات لعرضها في الداشبورد
         db = load_db()
         bank_data = db.get("bank", {})
         total_users = len(bank_data)
         total_money = sum(bank_data.values()) if bank_data else 0
         server_count = len(bot.guilds)
-        
-        return render_template('index.html', 
-                               servers=server_count, 
-                               users=total_users, 
-                               economy=total_money)
+        user_info = session.get('user')
+        return render_template('index.html', servers=server_count, users=total_users, economy=total_money, user=user_info)
     except Exception as e:
-        return f"Dashboard is online, but waiting for data... Error: {e}"
+        return f"Dashboard is online... Error: {e}"
+
+@app.route('/login')
+def login():
+    discord_sess = OAuth2Session(CLIENT_ID, redirect_uri=REDIRECT_URI, scope=['identify', 'guilds'])
+    authorization_url, state = discord_sess.authorization_url(AUTH_BASE_URL)
+    session['oauth2_state'] = state
+    return redirect(authorization_url)
+
+@app.route('/callback')
+def callback():
+    discord_sess = OAuth2Session(CLIENT_ID, redirect_uri=REDIRECT_URI, state=session.get('oauth2_state'), scope=['identify', 'guilds'])
+    token = discord_sess.fetch_token(TOKEN_URL, client_secret=CLIENT_SECRET, authorization_response=request.url)
+    user_data = discord_sess.get('https://discord.com/api/users/@me').json()
+    session['user'] = user_data
+    return redirect(url_for('home'))
 
 def run():
     app.run(host='0.0.0.0', port=8080)
@@ -38,12 +59,10 @@ def load_db():
     if not os.path.exists("op_data.json"):
         with open("op_data.json", "w") as f:
             json.dump({"bank": {}, "warns": {}, "auto_role": {}, "responses": {}, "settings": {}, "daily_cooldown": {}, "levels": {}, "security": {}}, f)
-    with open("op_data.json", "r") as f: 
-        return json.load(f)
+    with open("op_data.json", "r") as f: return json.load(f)
 
 def save_db(data):
-    with open("op_data.json", "w") as f: 
-        json.dump(data, f, indent=4)
+    with open("op_data.json", "w") as f: json.dump(data, f, indent=4)
 
 # --- 3. أنظمة التفاعل (تيكت) ---
 class TicketReasonModal(Modal, title="فتح تذكرة جديدة"):
@@ -71,15 +90,14 @@ class TicketView(discord.ui.View):
     async def open_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(TicketReasonModal())
 
-# --- 4. فئة البوت والأحداث ---
+# --- 4. فئة البوت والأحداث الكاملة ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
-        self.add_view(TicketView())
-        self.add_view(TicketActions())
+        self.add_view(TicketView()); self.add_view(TicketActions())
         await self.tree.sync()
 
     async def on_ready(self):
@@ -146,7 +164,7 @@ class OPBot(discord.Client):
 
 bot = OPBot()
 
-# --- الفئة 1: الإدارة ---
+# --- الفئة 1: الإدارة (بدون اختصار) ---
 @bot.tree.command(name="set-autoreply", description="إضافة رد تلقائي")
 @app_commands.checks.has_permissions(administrator=True)
 async def setautoreply(i, word: str, reply: str):
@@ -216,7 +234,7 @@ async def sec(i, status: bool):
     db=load_db(); db["security"][str(i.guild.id)]=status; save_db(db)
     await i.response.send_message(f"🛡️ {status}")
 
-# --- الفئة 2: الاقتصاد ---
+# --- الفئة 2: الاقتصاد (بدون اختصار) ---
 @bot.tree.command(name="daily", description="يومي")
 async def daily(i):
     db=load_db(); u=str(i.user.id); now=time.time()
@@ -234,7 +252,7 @@ async def work(i):
 @bot.tree.command(name="transfer", description="تحويل")
 async def trans(i, member: discord.Member, amount: int):
     db=load_db(); s=str(i.user.id); r=str(member.id)
-    if db["bank"].get(s,0)<amount: return await i.response.send_message("❌");
+    if db["bank"].get(s,0)<amount: return await i.response.send_message("❌")
     db["bank"][s]-=amount; db["bank"][r]=db["bank"].get(r,0)+amount; save_db(db); await i.response.send_message("✅")
 
 @bot.tree.command(name="top-bank", description="توب")
@@ -274,7 +292,7 @@ async def binf(i): await i.response.send_message("🏦")
 async def rmoney(i, member: discord.Member):
     db=load_db(); db["bank"][str(member.id)]=0; save_db(db); await i.response.send_message("🧹")
 
-# --- الفئة 3: ترفيه ---
+# --- الفئة 3: ترفيه (كل الأوامر بالظبط) ---
 @bot.tree.command(name="iq", description="ذكاء")
 async def iq(i): await i.response.send_message(f"🧠 {random.randint(1,200)}%")
 @bot.tree.command(name="hack", description="اختراق")
@@ -340,5 +358,5 @@ async def mem(i): await i.response.send_message(f"👥 {i.guild.member_count}")
 
 # --- التشغيل ---
 if __name__ == "__main__":
-    keep_alive() # تشغيل الداشبورد
+    keep_alive()
     bot.run(os.getenv("DISCORD_TOKEN"))
