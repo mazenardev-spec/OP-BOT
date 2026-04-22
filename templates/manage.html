@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة تحكم OP BOT</title>
+    <style>
+        body { background: #1a1c1e; color: #eef; font-family: 'Segoe UI', sans-serif; padding: 40px; }
+        .panel { max-width: 900px; margin: auto; }
+        .card { background: #2f3136; border-radius: 12px; padding: 25px; margin-bottom: 20px; border-left: 6px solid #5865F2; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        h2 { color: #5865F2; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        input, textarea, select { background: #40444b; border: 1px solid #222; color: white; padding: 12px; width: 95%; margin: 10px 0; border-radius: 8px; }
+        .btn-save { background: #2ecc71; color: white; font-weight: bold; cursor: pointer; border: none; padding: 15px; width: 100%; border-radius: 8px; transition: 0.3s; }
+        .btn-save:hover { background: #27ae60; }
+        .status-on { color: #2ecc71; font-weight: bold; }
+        .status-off { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>🛠️ إدارة السيرفر: <span style="color: #bbb;">{{ guild.id }}</span></h1>
+        
+        <form action="/update/{{ guild.id }}" method="POST">
+            
+            <div class="card">
+                <h2>👋 نظام الترحيب (Welcome)</h2>
+                <label>رسالة الترحيب:</label>
+                <textarea name="welcome_msg" rows="3" placeholder="أهلاً بك {user} في سيرفرنا!">/textarea>
+                <label>آيدي قناة الترحيب:</label>
+                <input type="text" name="welcome_channel" placeholder="123456789012345678">
+            </div>
+
+            <div class="card">
+                <h2>🛡️ نظام الحماية (Security)</h2>
+                <label>تفعيل الحماية من الروابط والسبام:</label><br><br>
+                <input type="checkbox" name="security" style="width: 20px;" {% if guild.security %}checked{% endif %}> تفعيل النظام
+            </div>
+
+            <div class="card">
+                <h2>⚙️ الإعدادات الإدارية</h2>
+                <label>آيدي الرتبة التلقائية (Auto Role):</label>
+                <input type="text" name="autorole" value="{{ guild.autorole }}">
+                <label>آيدي قناة السجلات (Logs):</label>
+                <input type="text" name="logs" value="{{ guild.logs }}">
+            </div>
+
+            <div class="card" style="border-left-color: #f1c40f;">
+                <h2>💰 إدارة الاقتصاد</h2>
+                <label>تصفير جميع أموال أعضاء السيرفر؟</label>
+                <select name="reset_all_bank">
+                    <option value="no">لا</option>
+                    <option value="yes">نعم، قم بالتصفير فوراً</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-save">💾 حفظ جميع التغييرات</button>
+        </form>
+        
+        <br>
+        <a href="/dashboard" style="color: #7289da; text-decoration: none;">⬅️ العودة لقائمة السيرفرات</a>
+    </div>
+</body>
+</html>
