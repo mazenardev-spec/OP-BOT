@@ -1,1 +1,47 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم OP BOT</title>
+    <style>
+        body { background: #23272a; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 0; }
+        .header { background: #7289da; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .container { margin-top: 50px; padding: 20px; }
+        .stats { display: flex; justify-content: center; gap: 25px; flex-wrap: wrap; }
+        .card { background: #2c2f33; border-radius: 15px; padding: 30px; min-width: 200px; border-bottom: 5px solid #7289da; transition: 0.3s; }
+        .card:hover { transform: translateY(-10px); }
+        h1 { margin: 0; font-size: 2.5em; }
+        h2 { color: #99aab5; font-size: 1.2em; }
+        .number { font-size: 2.5em; font-weight: bold; display: block; margin-top: 10px; }
+        .footer { margin-top: 60px; color: #7289da; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>لوحة تحكم بوت OP</h1>
+        <p>الإحصائيات المباشرة من ملف البيانات</p>
+    </div>
 
+    <div class="container">
+        <div class="stats">
+            <div class="card">
+                <h2>عدد السيرفرات</h2>
+                <span class="number">{{ servers }}</span>
+            </div>
+            <div class="card">
+                <h2>مستخدمي الاقتصاد</h2>
+                <span class="number">{{ users }}</span>
+            </div>
+            <div class="card">
+                <h2>إجمالي رصيد البنك</h2>
+                <span class="number">{{ economy }} 💰</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>تم التطوير بواسطة Mazen | الحالة: متصل بجاهزية تامة</p>
+    </div>
+</body>
+</html>
