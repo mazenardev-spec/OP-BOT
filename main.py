@@ -3,26 +3,47 @@ from discord import app_commands
 from discord.ui import Button, View, Modal, TextInput
 import random, asyncio, json, os, time
 from datetime import datetime, timedelta
-from flask import Flask
+from flask import Flask, render_template
 from threading import Thread
 
-# --- 1. نظام الـ Keep Alive ---
-app = Flask('')
-@app.route('/')
-def home(): return "OP BOT IS ONLINE"
+# --- 1. نظام الداشبورد و الـ Keep Alive ---
+app = Flask(__name__)
 
-def run(): app.run(host='0.0.0.0', port=8080)
-def keep_alive(): Thread(target=run).start()
+@app.route('/')
+def home():
+    try:
+        db = load_db()
+        # حساب إحصائيات سريعة للعرض في الداشبورد
+        bank_data = db.get("bank", {})
+        total_users = len(bank_data)
+        total_money = sum(bank_data.values()) if bank_data else 0
+        server_count = len(bot.guilds)
+        
+        return render_template('index.html', 
+                               servers=server_count, 
+                               users=total_users, 
+                               economy=total_money)
+    except Exception as e:
+        return f"Dashboard is online, but error loading stats: {e}"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 # --- 2. قاعدة البيانات ---
 def load_db():
     if not os.path.exists("op_data.json"):
         with open("op_data.json", "w") as f:
             json.dump({"bank": {}, "warns": {}, "auto_role": {}, "responses": {}, "settings": {}, "daily_cooldown": {}, "levels": {}, "security": {}}, f)
-    with open("op_data.json", "r") as f: return json.load(f)
+    with open("op_data.json", "r") as f: 
+        return json.load(f)
 
 def save_db(data):
-    with open("op_data.json", "w") as f: json.dump(data, f, indent=4)
+    with open("op_data.json", "w") as f: 
+        json.dump(data, f, indent=4)
 
 # --- 3. أنظمة التفاعل (تيكت) ---
 class TicketReasonModal(Modal, title="فتح تذكرة جديدة"):
@@ -50,7 +71,7 @@ class TicketView(discord.ui.View):
     async def open_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(TicketReasonModal())
 
-# --- 4. فئة البوت والأحداث (الحالة + اللوج الخارق) ---
+# --- 4. فئة البوت والأحداث ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
@@ -62,7 +83,6 @@ class OPBot(discord.Client):
         await self.tree.sync()
 
     async def on_ready(self):
-        # تحديث الحالة: /help | Servers
         activity = discord.Activity(type=discord.ActivityType.watching, name=f"/help | {len(self.guilds)} Servers")
         await self.change_presence(status=discord.Status.online, activity=activity)
         print(f'Logged in as {self.user}!')
@@ -74,7 +94,6 @@ class OPBot(discord.Client):
             ch = guild.get_channel(log_id)
             if ch: await ch.send(embed=embed)
 
-    # --- نظام اللوج المطور جداً ---
     async def on_message_delete(self, m):
         if m.author.bot: return
         emb = discord.Embed(title="🗑️ حذف رسالة", color=0xff0000, timestamp=datetime.now())
@@ -90,7 +109,6 @@ class OPBot(discord.Client):
         await self.send_log(b.guild, emb)
 
     async def on_member_update(self, b, a):
-        # لوج إضافة أو إزالة الرتب
         if b.roles != a.roles:
             added = [r.mention for r in a.roles if r not in b.roles]
             removed = [r.mention for r in b.roles if r not in a.roles]
@@ -128,9 +146,7 @@ class OPBot(discord.Client):
 
 bot = OPBot()
 
-# ==========================================
-# الفئة 1: الإدارة
-# ==========================================
+# --- الفئة 1: الإدارة ---
 @bot.tree.command(name="set-autoreply", description="إضافة رد تلقائي")
 @app_commands.checks.has_permissions(administrator=True)
 async def setautoreply(i, word: str, reply: str):
@@ -200,9 +216,7 @@ async def sec(i, status: bool):
     db=load_db(); db["security"][str(i.guild.id)]=status; save_db(db)
     await i.response.send_message(f"🛡️ {status}")
 
-# ==========================================
-# الفئة 2: الاقتصاد (15 أمر)
-# ==========================================
+# --- الفئة 2: الاقتصاد ---
 @bot.tree.command(name="daily", description="يومي")
 async def daily(i):
     db=load_db(); u=str(i.user.id); now=time.time()
@@ -260,9 +274,7 @@ async def binf(i): await i.response.send_message("🏦")
 async def rmoney(i, member: discord.Member):
     db=load_db(); db["bank"][str(member.id)]=0; save_db(db); await i.response.send_message("🧹")
 
-# ==========================================
-# الفئة 3: ترفيه (15 أمر)
-# ==========================================
+# --- الفئة 3: ترفيه ---
 @bot.tree.command(name="iq", description="ذكاء")
 async def iq(i): await i.response.send_message(f"🧠 {random.randint(1,200)}%")
 @bot.tree.command(name="hack", description="اختراق")
@@ -294,9 +306,7 @@ async def dan(i): await i.response.send_message("💃")
 @bot.tree.command(name="xo", description="تحدي")
 async def xo(i, m: discord.Member): await i.response.send_message(f"🎮 {m.mention}")
 
-# ==========================================
-# الفئة 4: عام
-# ==========================================
+# --- الفئة 4: عام ---
 @bot.tree.command(name="help", description="أوامر")
 async def hlp(i): await i.response.send_message("🛡️ | 💰 | 🎮 | 📁")
 @bot.tree.command(name="ping", description="بنج")
@@ -328,7 +338,7 @@ async def bti(i): await i.response.send_message("OP BOT v5.0")
 @bot.tree.command(name="members", description="أعضاء")
 async def mem(i): await i.response.send_message(f"👥 {i.guild.member_count}")
 
-# --- التشغيل ---
+# --- التشغيل النهائي ---
 if __name__ == "__main__":
-    keep_alive()
+    keep_alive() # تشغيل الداشبورد أونلاين
     bot.run(os.getenv("DISCORD_TOKEN"))
