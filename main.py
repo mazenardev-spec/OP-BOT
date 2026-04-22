@@ -14,7 +14,7 @@ app.secret_key = os.urandom(24)
 # بيانات التطبيق - تأكد من وضعها في Discord Developer Portal
 CLIENT_ID = '1495807245856804976'
 CLIENT_SECRET = 'PKoJ6RyZGnM-YKuM-3el-z193iWS-H7T'
-REDIRECT_URI = 'https://your-app-name.up.railway.app/callback' 
+REDIRECT_URI = 'https://op-bot-production.up.railway.app/callback' 
 
 AUTH_BASE_URL = 'https://discord.com/api/oauth2/authorize'
 TOKEN_URL = 'https://discord.com/api/oauth2/token'
