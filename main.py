@@ -282,4 +282,4 @@ async def c70(i):
     e.add_field(name="ADMIN (20)", value="`/ban`, `/kick`, `/nuke`..."); e.add_field(name="ECONOMY (20)", value="`/daily`, `/work`...")
     await i.response.send_message(embed=e)
 
-bot.run("TOKEN_HERE")
+bot.run(os.getenv("DISCORD_TOKEN"))
