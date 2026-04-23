@@ -29,7 +29,7 @@ class TicketView(View):
         await interaction.response.send_message(f"✅ تم فتح التذكرة: {channel.mention}", ephemeral=True)
         await channel.send(f"أهلاً {interaction.user.mention}، تفضل بطرح مشكلتك.")
 
-# --- 3. البوت ونظام اللوق الشامل ---
+# --- 3. البوت ونظام اللوق الشامل مع الحالة المحدثة ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
@@ -41,6 +41,26 @@ class OPBot(discord.Client):
 
     async def on_ready(self):
         print(f'✅ {self.user} متصل! 70 أمراً جاهزة للاستخدام.')
+        # تشغيل مهمة الحالة التلقائية عند بدء التشغيل
+        if not hasattr(self, 'status_task_started'):
+            self.loop.create_task(self.status_loop())
+            self.status_task_started = True
+
+    async def status_loop(self):
+        """نظام تحديث الحالة كل 30 دقيقة ليعرض عدد السيرفرات والمساعدة"""
+        await self.wait_until_ready()
+        while not self.is_closed():
+            server_count = len(self.guilds)
+            status_text = f"/help | Servers: {server_count}"
+            
+            await self.change_presence(
+                activity=discord.Activity(
+                    type=discord.ActivityType.watching, 
+                    name=status_text
+                )
+            )
+            # الانتظار لمدة 30 دقيقة (1800 ثانية)
+            await asyncio.sleep(1800)
 
     async def send_log(self, guild, embed):
         db = load_db()
