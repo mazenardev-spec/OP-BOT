@@ -123,7 +123,7 @@ class OPBot(discord.Client):
         while True: await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"/help | {len(self.guilds)} Servers")); await asyncio.sleep(300)
 
     # --- لوقات تلقائية للأحداث ---
-    async fun on_member_update(self, before, after):
+    async def on_member_update(self, before, after):
         if before.roles != after.roles:
             added = [r for r in after.roles if r not in before.roles]
             removed = [r for r in before.roles if r not in after.roles]
