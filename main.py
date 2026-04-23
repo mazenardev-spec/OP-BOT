@@ -29,7 +29,7 @@ class TicketView(View):
         await interaction.response.send_message(f"✅ تم فتح التذكرة: {channel.mention}", ephemeral=True)
         await channel.send(f"أهلاً {interaction.user.mention}، تفضل بطرح مشكلتك.")
 
-# --- 3. البوت ونظام اللوق والحماية والردود المصلح ---
+# --- 3. البوت ونظام اللوق والحماية والردود (الإصدار المصلح) ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
@@ -54,60 +54,79 @@ class OPBot(discord.Client):
 
     async def send_log(self, guild, embed):
         db = load_db()
+        # جلب أيدي القناة من الإعدادات للسيرفر المحدد
         lch_id = db["settings"].get(str(guild.id), {}).get("log")
         if lch_id:
             channel = guild.get_channel(int(lch_id))
-            if channel: await channel.send(embed=embed)
+            if channel:
+                try: await channel.send(embed=embed)
+                except: pass
 
-    # إصلاح نظام الرد التلقائي والحماية
+    # --- معالج الرسائل (إصلاح الحماية + الرد التلقائي) ---
     async def on_message(self, message):
         if message.author.bot or not message.guild: return
+        
         db = load_db()
         
-        # الحماية
-        if message.guild.id in db["security"] and not message.author.guild_permissions.administrator:
-            if re.search(r'http[s]?://', message.content) or message.attachments:
-                await message.delete()
-                return
+        # 🛡️ نظام الحماية المصلح
+        if message.guild.id in db["security"]:
+            # السماح للإدارة فقط بتخطي الحماية
+            if not message.author.guild_permissions.administrator:
+                if re.search(r'http[s]?://', message.content) or message.attachments:
+                    await message.delete()
+                    return # نوقف التنفيذ عشان ما يرد رد تلقائي على رسالة محذوفة
 
-        # الرد التلقائي
-        responses = db["responses"].get(str(message.guild.id), {})
-        if message.content in responses:
-            await message.channel.send(responses[message.content])
+        # 💬 نظام الرد التلقائي المصلح
+        guild_responses = db["responses"].get(str(message.guild.id), {})
+        if message.content in guild_responses:
+            await message.channel.send(guild_responses[message.content])
 
-    # أحداث اللوق
+    # --- نظام اللوق المصلح ---
     async def on_message_delete(self, msg):
         if msg.author.bot: return
-        e = discord.Embed(title="🗑️ حذف رسالة", color=discord.Color.red())
+        e = discord.Embed(title="🗑️ حذف رسالة", color=discord.Color.red(), timestamp=datetime.now())
         e.add_field(name="المرسل", value=msg.author.mention)
-        e.add_field(name="المحتوى", value=msg.content or "ملف/صورة")
+        e.add_field(name="المحتوى", value=msg.content or "ملف أو صورة")
+        e.add_field(name="القناة", value=msg.channel.mention)
         await self.send_log(msg.guild, e)
 
-    async def on_message_edit(self, b, a):
-        if b.author.bot or b.content == a.content: return
-        e = discord.Embed(title="📝 تعديل رسالة", color=discord.Color.blue())
-        e.add_field(name="قبل", value=b.content); e.add_field(name="بعد", value=a.content)
-        await self.send_log(b.guild, e)
+    async def on_message_edit(self, before, after):
+        if before.author.bot or before.content == after.content: return
+        e = discord.Embed(title="📝 تعديل رسالة", color=discord.Color.blue(), timestamp=datetime.now())
+        e.add_field(name="المرسل", value=before.author.mention)
+        e.add_field(name="قبل", value=before.content or "فارغ")
+        e.add_field(name="بعد", value=after.content or "فارغ")
+        await self.send_log(before.guild, e)
 
-    # لوق الرتب المطور (مين سحب/أعطى لمين)
+    # 🛡️ لوق الرتب المطور (مين عمل إيه في مين)
     async def on_member_update(self, before, after):
         if before.roles != after.roles:
-            e = discord.Embed(title="🛡️ تحديث رتب", color=discord.Color.gold())
             added = [r.mention for r in after.roles if r not in before.roles]
             removed = [r.mention for r in before.roles if r not in after.roles]
-            if added: e.add_field(name="✅ مضافة", value=", ".join(added))
-            if removed: e.add_field(name="❌ مسحوبة", value=", ".join(removed))
-            e.description = f"العضو: {after.mention}"
-            await self.send_log(after.guild, e)
+            
+            if added or removed:
+                e = discord.Embed(title="🛡️ تحديث رتب عضو", color=discord.Color.gold(), timestamp=datetime.now())
+                e.description = f"العضو: {after.mention}"
+                if added: e.add_field(name="✅ رتب مضافة", value=", ".join(added))
+                if removed: e.add_field(name="❌ رتب مسحوبة", value=", ".join(removed))
+                
+                # جلب الشخص اللي قام بالفعل من الأوديت لوق
+                async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
+                    if entry.target.id == after.id:
+                        e.set_footer(text=f"بواسطة: {entry.user.name}", icon_url=entry.user.display_avatar.url)
+                        break
+                await self.send_log(after.guild, e)
 
-    async def on_member_join(self, m):
-        e = discord.Embed(title="📥 دخول عضو", color=discord.Color.green())
-        e.set_thumbnail(url=m.display_avatar.url)
-        await self.send_log(m.guild, e)
+    async def on_member_join(self, member):
+        e = discord.Embed(title="📥 دخول عضو جديد", color=discord.Color.green(), timestamp=datetime.now())
+        e.set_thumbnail(url=member.display_avatar.url)
+        e.add_field(name="الاسم", value=member.name)
+        await self.send_log(member.guild, e)
 
-    async def on_member_remove(self, m):
-        e = discord.Embed(title="📤 خروج عضو", color=discord.Color.orange())
-        await self.send_log(m.guild, e)
+    async def on_member_remove(self, member):
+        e = discord.Embed(title="📤 خروج عضو", color=discord.Color.orange(), timestamp=datetime.now())
+        e.add_field(name="الاسم", value=member.name)
+        await self.send_log(member.guild, e)
 
 bot = OPBot()
 
