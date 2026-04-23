@@ -29,11 +29,12 @@ class TicketView(View):
         await interaction.response.send_message(f"✅ تم فتح التذكرة: {channel.mention}", ephemeral=True)
         await channel.send(f"أهلاً {interaction.user.mention}، تفضل بطرح مشكلتك.")
 
-# --- 3. البوت ونظام اللوق والحماية والردود (الإصدار المصلح) ---
+# --- 3. البوت ونظام الحماية واللوق الشامل ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
         self.tree = app_commands.CommandTree(self)
+        self.anti_spam = {} 
 
     async def setup_hook(self):
         self.add_view(TicketView())
@@ -54,7 +55,6 @@ class OPBot(discord.Client):
 
     async def send_log(self, guild, embed):
         db = load_db()
-        # جلب أيدي القناة من الإعدادات للسيرفر المحدد
         lch_id = db["settings"].get(str(guild.id), {}).get("log")
         if lch_id:
             channel = guild.get_channel(int(lch_id))
@@ -62,71 +62,65 @@ class OPBot(discord.Client):
                 try: await channel.send(embed=embed)
                 except: pass
 
-    # --- معالج الرسائل (إصلاح الحماية + الرد التلقائي) ---
+    # --- نظام الحماية (روابط/صور/سبام) + الردود ---
     async def on_message(self, message):
         if message.author.bot or not message.guild: return
-        
         db = load_db()
         
-        # 🛡️ نظام الحماية المصلح
-        if message.guild.id in db["security"]:
-            # السماح للإدارة فقط بتخطي الحماية
+        # 🛡️ الحماية
+        if message.guild.id in db.get("security", []):
             if not message.author.guild_permissions.administrator:
+                # منع الروابط والصور
                 if re.search(r'http[s]?://', message.content) or message.attachments:
+                    try: await message.author.send(f"⚠️ تم حذف رسالتك في **{message.guild.name}** (ممنوع الروابط والصور).")
+                    except: pass
                     await message.delete()
-                    return # نوقف التنفيذ عشان ما يرد رد تلقائي على رسالة محذوفة
+                    return
 
-        # 💬 نظام الرد التلقائي المصلح
-        guild_responses = db["responses"].get(str(message.guild.id), {})
-        if message.content in guild_responses:
-            await message.channel.send(guild_responses[message.content])
+                # منع السبام
+                now = datetime.now()
+                uid = message.author.id
+                if uid not in self.anti_spam: self.anti_spam[uid] = []
+                self.anti_spam[uid].append(now)
+                self.anti_spam[uid] = [t for t in self.anti_spam[uid] if now - t < timedelta(seconds=5)]
+                
+                if len(self.anti_spam[uid]) > 5:
+                    try: 
+                        await message.author.send(f"⚠️ تم إسكاتك في **{message.guild.name}** بسبب السبام.")
+                        await message.author.timeout(timedelta(minutes=10))
+                    except: pass
+                    await message.delete()
+                    return
 
-    # --- نظام اللوق المصلح ---
+        # 💬 الرد التلقائي
+        responses = db["responses"].get(str(message.guild.id), {})
+        if message.content in responses:
+            await message.channel.send(responses[message.content])
+
+    # --- اللوق الشامل ---
     async def on_message_delete(self, msg):
         if msg.author.bot: return
-        e = discord.Embed(title="🗑️ حذف رسالة", color=discord.Color.red(), timestamp=datetime.now())
+        e = discord.Embed(title="🗑️ حذف رسالة", color=discord.Color.red())
         e.add_field(name="المرسل", value=msg.author.mention)
-        e.add_field(name="المحتوى", value=msg.content or "ملف أو صورة")
-        e.add_field(name="القناة", value=msg.channel.mention)
+        e.add_field(name="المحتوى", value=msg.content or "ملف/صورة")
         await self.send_log(msg.guild, e)
 
-    async def on_message_edit(self, before, after):
-        if before.author.bot or before.content == after.content: return
-        e = discord.Embed(title="📝 تعديل رسالة", color=discord.Color.blue(), timestamp=datetime.now())
-        e.add_field(name="المرسل", value=before.author.mention)
-        e.add_field(name="قبل", value=before.content or "فارغ")
-        e.add_field(name="بعد", value=after.content or "فارغ")
-        await self.send_log(before.guild, e)
+    async def on_message_edit(self, b, a):
+        if b.author.bot or b.content == a.content: return
+        e = discord.Embed(title="📝 تعديل رسالة", color=discord.Color.blue())
+        e.add_field(name="قبل", value=b.content); e.add_field(name="بعد", value=a.content)
+        await self.send_log(b.guild, e)
 
-    # 🛡️ لوق الرتب المطور (مين عمل إيه في مين)
     async def on_member_update(self, before, after):
         if before.roles != after.roles:
             added = [r.mention for r in after.roles if r not in before.roles]
-            removed = [r.mention for r in before.roles if r not in after.roles]
-            
+            removed = [r.mention for r in before.roles if r not in before.roles]
             if added or removed:
-                e = discord.Embed(title="🛡️ تحديث رتب عضو", color=discord.Color.gold(), timestamp=datetime.now())
+                e = discord.Embed(title="🛡️ تحديث رتب", color=discord.Color.gold())
                 e.description = f"العضو: {after.mention}"
-                if added: e.add_field(name="✅ رتب مضافة", value=", ".join(added))
-                if removed: e.add_field(name="❌ رتب مسحوبة", value=", ".join(removed))
-                
-                # جلب الشخص اللي قام بالفعل من الأوديت لوق
-                async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
-                    if entry.target.id == after.id:
-                        e.set_footer(text=f"بواسطة: {entry.user.name}", icon_url=entry.user.display_avatar.url)
-                        break
+                if added: e.add_field(name="✅ أضيفت", value=", ".join(added))
+                if removed: e.add_field(name="❌ سحبت", value=", ".join(removed))
                 await self.send_log(after.guild, e)
-
-    async def on_member_join(self, member):
-        e = discord.Embed(title="📥 دخول عضو جديد", color=discord.Color.green(), timestamp=datetime.now())
-        e.set_thumbnail(url=member.display_avatar.url)
-        e.add_field(name="الاسم", value=member.name)
-        await self.send_log(member.guild, e)
-
-    async def on_member_remove(self, member):
-        e = discord.Embed(title="📤 خروج عضو", color=discord.Color.orange(), timestamp=datetime.now())
-        e.add_field(name="الاسم", value=member.name)
-        await self.send_log(member.guild, e)
 
 bot = OPBot()
 
@@ -142,16 +136,18 @@ async def c2(i, ch: discord.TextChannel, title: str):
     await ch.send(embed=discord.Embed(title=title, color=0x2ecc71), view=TicketView())
     await i.response.send_message("✅")
 
-@bot.tree.command(name="add-security", description="تفعيل الحماية ضد الروابط والصور")
+@bot.tree.command(name="add-security", description="تفعيل الحماية + خاص")
 async def c3(i):
-    db = load_db(); db["security"].append(i.guild.id); save_db(db); await i.response.send_message("🛡️ مفعل")
+    db = load_db()
+    if i.guild.id not in db["security"]: db["security"].append(i.guild.id); save_db(db)
+    await i.response.send_message("🛡️ مفعل (روابط/صور/سبام) مع تنبيه خاص.")
 
-@bot.tree.command(name="remove-security", description="تعطيل نظام الحماية")
+@bot.tree.command(name="remove-security", description="تعطيل الحماية")
 async def c4(i):
-    db = load_db(); 
-    if i.guild.id in db["security"]: db["security"].remove(i.guild.id)
+    db = load_db()
+    db["security"] = [g for g in db["security"] if g != i.guild.id]
     save_db(db); await i.response.send_message("🔓 معطل")
-
+    
 @bot.tree.command(name="set-welcome", description="تحديد قناة الترحيب")
 async def c5(i, ch: discord.TextChannel):
     db = load_db(); db["settings"].setdefault(str(i.guild.id), {})["w"] = str(ch.id); save_db(db); await i.response.send_message("✅")
