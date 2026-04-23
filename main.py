@@ -223,11 +223,6 @@ async def c36(i):
 async def c37(i):
     g = random.randint(100, 300); db = load_db(); db["bank"][str(i.user.id)] += g; save_db(db)
     await i.response.send_message(f"🏹 اصطدت غزال بـ {g}")
-
-@bot.tree.command(name="shop", description="فتح متجر السيرفر")
-async def c38(i): await i.response.send_message("🛒 المتجر قيد التحديث...")
-@bot.tree.command(name="buy", description="شراء عنصر من المتجر")
-async def c39(i, item: str): await i.response.send_message(f"✅ تم شراء {item}")
 @bot.tree.command(name="give-money", description="منح مال لعضو (للإدارة فقط)")
 async def c40(i, m: discord.Member, a: int):
     db = load_db(); db["bank"][str(m.id)] = db["bank"].get(str(m.id), 0) + a; save_db(db)
