@@ -29,7 +29,7 @@ class TicketView(View):
         await interaction.response.send_message(f"✅ تم فتح التذكرة: {channel.mention}", ephemeral=True)
         await channel.send(f"أهلاً {interaction.user.mention}، تفضل بطرح مشكلتك.")
 
-# --- 3. فئة الألعاب (1) ---
+# --- 3. منطق لعبة الطرد (Kick Game) ---
 class KickGameView(View):
     def __init__(self, starter):
         super().__init__(timeout=None)
@@ -101,7 +101,7 @@ class KickGameView(View):
         db = load_db(); uid = str(winner.id); db["bank"][uid] = db["bank"].get(uid, 0) + 5000; save_db(db)
         await channel.send(f"👑 **انتهت اللعبة! الفائز {winner.mention} حصل على 5000 كريدت!**")
 
-# --- 4. فئة البوت الأساسية ---
+# --- 4. فئة البوت الأساسية مع نظام الحالة والحماية ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
@@ -113,7 +113,17 @@ class OPBot(discord.Client):
         await self.tree.sync()
 
     async def on_ready(self):
-        print(f'✅ {self.user} متصل! تم تحميل الأوامر كاملة.')
+        print(f'✅ {self.user} متصل! 71 أمراً جاهزة.')
+        if not hasattr(self, 'status_task_started'):
+            self.loop.create_task(self.status_loop())
+            self.status_task_started = True
+
+    async def status_loop(self):
+        await self.wait_until_ready()
+        while not self.is_closed():
+            server_count = len(self.guilds)
+            await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"/help | Servers: {server_count}"))
+            await asyncio.sleep(1800)
 
     async def send_log(self, guild, embed):
         db = load_db()
@@ -130,17 +140,13 @@ class OPBot(discord.Client):
         if message.guild.id in db.get("security", []):
             if not message.author.guild_permissions.administrator:
                 if re.search(r'http[s]?://', message.content) or message.attachments:
-                    try: await message.author.send(f"⚠️ حذفنا رسالتك في **{message.guild.name}** (ممنوع الروابط/الصور).")
-                    except: pass
                     await message.delete(); return
                 now = datetime.now(); uid = message.author.id
                 if uid not in self.anti_spam: self.anti_spam[uid] = []
                 self.anti_spam[uid].append(now)
                 self.anti_spam[uid] = [t for t in self.anti_spam[uid] if now - t < timedelta(seconds=5)]
                 if len(self.anti_spam[uid]) > 5:
-                    try: 
-                        await message.author.send(f"⚠️ إسكات في **{message.guild.name}** (سبام).")
-                        await message.author.timeout(timedelta(minutes=10))
+                    try: await message.author.timeout(timedelta(minutes=10))
                     except: pass
                     await message.delete(); return
         responses = db["responses"].get(str(message.guild.id), {})
@@ -165,7 +171,7 @@ async def c2(i, ch: discord.TextChannel, title: str):
 
 @bot.tree.command(name="add-security", description="تفعيل الحماية")
 async def c3(i):
-    db = load_db(); 
+    db = load_db()
     if i.guild.id not in db["security"]: db["security"].append(i.guild.id); save_db(db)
     await i.response.send_message("🛡️ مفعل.")
 
@@ -195,66 +201,47 @@ async def c9(i, ch: discord.TextChannel):
     db = load_db(); db["settings"].setdefault(str(i.guild.id), {})["s"] = str(ch.id); save_db(db); await i.response.send_message("✅")
 
 @bot.tree.command(name="server-config", description="حالة السيرفر")
-async def c10(i): await i.response.send_message("⚙️ تم تحميل الإعدادات")
+async def c10(i): await i.response.send_message("⚙️")
 
 # --- فئة: الإدارة (20 أمراً) ---
 @bot.tree.command(name="ban", description="حظر")
 async def c11(i, m: discord.Member): await m.ban(); await i.response.send_message("🚫")
-
 @bot.tree.command(name="kick", description="طرد")
 async def c12(i, m: discord.Member): await m.kick(); await i.response.send_message("👢")
-
 @bot.tree.command(name="clear", description="مسح")
 async def c13(i, a: int): await i.channel.purge(limit=a); await i.response.send_message(f"🧹 {a}", ephemeral=True)
-
 @bot.tree.command(name="lock", description="قفل")
 async def c14(i): await i.channel.set_permissions(i.guild.default_role, send_messages=False); await i.response.send_message("🔒")
-
 @bot.tree.command(name="unlock", description="فتح")
 async def c15(i): await i.channel.set_permissions(i.guild.default_role, send_messages=True); await i.response.send_message("🔓")
-
 @bot.tree.command(name="timeout", description="إسكات")
 async def c16(i, m: discord.Member, t: int): await m.timeout(timedelta(minutes=t)); await i.response.send_message("🔇")
-
 @bot.tree.command(name="nuke", description="تطهير")
 async def c17(i): c = await i.channel.clone(); await i.channel.delete(); await c.send("💥")
-
 @bot.tree.command(name="slowmode", description="تباطؤ")
 async def c18(i, s: int): await i.channel.edit(slowmode_delay=s); await i.response.send_message(f"🐢 {s}s")
-
 @bot.tree.command(name="hide", description="إخفاء")
 async def c19(i): await i.channel.set_permissions(i.guild.default_role, view_channel=False); await i.response.send_message("👻")
-
 @bot.tree.command(name="unhide", description="إظهار")
 async def c20(i): await i.channel.set_permissions(i.guild.default_role, view_channel=True); await i.response.send_message("👁️")
-
 @bot.tree.command(name="warn", description="تحذير")
-async def c21(i, m: discord.Member, r: str): await i.response.send_message(f"⚠️ {m.mention}: {r}")
-
+async def c21(i, m: discord.Member, r: str): await i.response.send_message(f"⚠️ {m.mention}")
 @bot.tree.command(name="role-add", description="إضافة رتبة")
 async def c22(i, m: discord.Member, r: discord.Role): await m.add_roles(r); await i.response.send_message("✅")
-
 @bot.tree.command(name="role-remove", description="سحب رتبة")
 async def c23(i, m: discord.Member, r: discord.Role): await m.remove_roles(r); await i.response.send_message("✅")
-
 @bot.tree.command(name="vmute", description="كتم صوتي")
 async def c24(i, m: discord.Member): await m.edit(mute=True); await i.response.send_message("🔇")
-
 @bot.tree.command(name="vunmute", description="فتح صوتي")
 async def c25(i, m: discord.Member): await m.edit(mute=False); await i.response.send_message("🔊")
-
 @bot.tree.command(name="move", description="نقل")
 async def c26(i, m: discord.Member, c: discord.VoiceChannel): await m.move_to(c); await i.response.send_message("🚚")
-
 @bot.tree.command(name="nick", description="اسم")
 async def c27(i, m: discord.Member, n: str): await m.edit(nick=n); await i.response.send_message("📝")
-
 @bot.tree.command(name="vkick", description="طرد صوتي")
 async def c28(i, m: discord.Member): await m.move_to(None); await i.response.send_message("👢")
-
 @bot.tree.command(name="untimeout", description="إزالة إسكات")
 async def c29(i, m: discord.Member): await m.timeout(None); await i.response.send_message("🔊")
-
 @bot.tree.command(name="clear-warns", description="مسح تحذيرات")
 async def c30(i, m: discord.Member): await i.response.send_message("🧹")
 
@@ -265,134 +252,97 @@ async def c31(i):
     last = db["last_daily"].get(uid)
     if last and now < datetime.fromisoformat(last) + timedelta(days=1): return await i.response.send_message("❌")
     db["bank"][uid] = db["bank"].get(uid, 0) + 1000; db["last_daily"][uid] = now.isoformat(); save_db(db); await i.response.send_message("💰 +1000")
-
 @bot.tree.command(name="work", description="عمل")
 async def c32(i):
     p = random.randint(100, 1000); db = load_db(); u = str(i.user.id); db["bank"][u] = db["bank"].get(u, 0) + p; save_db(db); await i.response.send_message(f"💼 +{p}")
-
 @bot.tree.command(name="credits", description="رصيد")
 async def c33(i, m: discord.Member=None):
     db = load_db(); u = str(m.id if m else i.user.id); await i.response.send_message(f"💳 {db['bank'].get(u, 0)}")
-
 @bot.tree.command(name="transfer", description="تحويل")
 async def c34(i, m: discord.Member, a: int):
     db = load_db(); u, t = str(i.user.id), str(m.id)
     if db["bank"].get(u, 0) < a: return await i.response.send_message("❌")
     db["bank"][u] -= a; db["bank"][t] = db["bank"].get(t, 0) + a; save_db(db); await i.response.send_message(f"✅ {a}")
-
 @bot.tree.command(name="rob", description="سرقة")
 async def c35(i, m: discord.Member):
     s = random.randint(10, 100); db = load_db(); db["bank"][str(i.user.id)] += s; save_db(db); await i.response.send_message(f"🥷 {s}")
-
 @bot.tree.command(name="fish", description="صيد")
 async def c36(i):
     g = random.randint(10, 50); db = load_db(); db["bank"][str(i.user.id)] += g; save_db(db); await i.response.send_message(f"🎣 {g}")
-
 @bot.tree.command(name="hunt", description="غابة")
 async def c37(i):
     g = random.randint(20, 80); db = load_db(); db["bank"][str(i.user.id)] += g; save_db(db); await i.response.send_message(f"🏹 {g}")
-
 @bot.tree.command(name="give-money", description="منح")
 async def c40(i, m: discord.Member, a: int):
     db = load_db(); db["bank"][str(m.id)] = db["bank"].get(str(m.id), 0) + a; save_db(db); await i.response.send_message("🎁")
-
 @bot.tree.command(name="reset-money", description="تصفير")
 async def c41(i, m: discord.Member):
     db = load_db(); db["bank"][str(m.id)] = 0; save_db(db); await i.response.send_message("🧹")
-
 @bot.tree.command(name="slots", description="رهان")
 async def c42(i, a: int): await i.response.send_message("🎰")
-
 @bot.tree.command(name="coinflip", description="عملة")
 async def c43(i): await i.response.send_message(random.choice(["🪙 ملك", "🪙 كتابة"]))
-
 @bot.tree.command(name="top-money", description="أغنياء")
-async def c44(i): await i.response.send_message("🏆 الأغنياء")
-
+async def c44(i): await i.response.send_message("🏆")
 @bot.tree.command(name="pay", description="دفع")
 async def c45(i, m: discord.Member, a: int): await i.response.send_message("✅")
-
 @bot.tree.command(name="withdraw", description="سحب")
-async def c46(i, a: int): await i.response.send_message("🏧 سحب")
-
+async def c46(i, a: int): await i.response.send_message("🏧")
 @bot.tree.command(name="deposit", description="إيداع")
-async def c47(i, a: int): await i.response.send_message("🏦 إيداع")
-
+async def c47(i, a: int): await i.response.send_message("🏦")
 @bot.tree.command(name="gamble", description="مقامرة")
 async def c48(i, a: int): await i.response.send_message("🎲")
-
 @bot.tree.command(name="salary", description="راتب")
-async def c49(i): await i.response.send_message("💼 +500")
-
+async def c49(i): await i.response.send_message("💼")
 @bot.tree.command(name="bank-status", description="بنك")
-async def c50(i): await i.response.send_message("🏦 مستقر")
-
+async def c50(i): await i.response.send_message("🏦")
 @bot.tree.command(name="store", description="متجر")
-async def store_cmd(i): await i.response.send_message("🛒 قريباً")
-
+async def st(i): await i.response.send_message("🛒")
 @bot.tree.command(name="buy", description="شراء")
-async def buy_cmd(i, item: str): await i.response.send_message(f"📦 اشتريت {item}")
+async def by(i, item: str): await i.response.send_message("📦")
 
 # --- فئة: التسلية (10 أوامر) ---
 @bot.tree.command(name="iq", description="ذكاء")
 async def c51(i): await i.response.send_message(f"🧠 {random.randint(0,100)}%")
-
 @bot.tree.command(name="hack", description="اختراق")
 async def c52(i, m: discord.Member): 
     await i.response.send_message("💻..."); await asyncio.sleep(1); await i.edit_original_response(content="✅")
-
 @bot.tree.command(name="kill", description="قتل")
 async def c53(i, m: discord.Member): await i.response.send_message(f"⚔️ {m.mention}")
-
 @bot.tree.command(name="slap", description="كف")
 async def c54(i, m: discord.Member): await i.response.send_message(f"🖐️ {m.mention}")
-
 @bot.tree.command(name="joke", description="نكتة")
 async def c55(i): await i.response.send_message("🤣")
-
 @bot.tree.command(name="dice", description="زهر")
 async def c56(i): await i.response.send_message(f"🎲 {random.randint(1,6)}")
-
 @bot.tree.command(name="hug", description="حضن")
 async def c57(i, m: discord.Member): await i.response.send_message(f"🤗 {m.mention}")
-
 @bot.tree.command(name="choose", description="اختيار")
 async def c58(i, a: str, b: str): await i.response.send_message(f"🤔 {random.choice([a,b])}")
-
 @bot.tree.command(name="punch", description="لكمة")
 async def c59(i, m: discord.Member): await i.response.send_message(f"👊 {m.mention}")
-
 @bot.tree.command(name="wanted", description="مطلوب")
-async def c60(i): await i.response.send_message("⚠️ مطلوب")
+async def c60(i): await i.response.send_message("⚠️")
 
 # --- فئة: أوامر عامة (10 أوامر) ---
 @bot.tree.command(name="ping", description="اتصال")
 async def c61(i): await i.response.send_message(f"🏓 {round(bot.latency*1000)}ms")
-
 @bot.tree.command(name="avatar", description="صورة")
 async def c62(i, m: discord.Member=None): await i.response.send_message((m or i.user).display_avatar.url)
-
 @bot.tree.command(name="server", description="سيرفر")
 async def c63(i): await i.response.send_message(f"🏰 {i.guild.name}")
-
 @bot.tree.command(name="user-info", description="معلومات")
 async def c64(i, m: discord.Member=None): await i.response.send_message(f"👤 {(m or i.user).name}")
-
 @bot.tree.command(name="id", description="أيدي")
 async def c65(i): await i.response.send_message(f"🆔 {i.user.id}")
-
 @bot.tree.command(name="say", description="كرر")
 async def c66(i, t: str): await i.channel.send(t); await i.response.send_message("✅", ephemeral=True)
-
 @bot.tree.command(name="uptime", description="وقت")
-async def c67(i): await i.response.send_message("🕒 يعمل")
-
+async def c67(i): await i.response.send_message("🕒")
 @bot.tree.command(name="poll", description="تصويت")
 async def c68(i, q: str): await i.response.send_message(f"📊 {q}")
-
 @bot.tree.command(name="calculate", description="حساب")
-async def c69(i, n1: int, o: str, n2: int): await i.response.send_message(f"🔢")
-
+async def c69(i, n1: int, o: str, n2: int): await i.response.send_message("🔢")
 @bot.tree.command(name="help", description="مساعدة")
 async def c70(i):
     e = discord.Embed(title="📜 قائمة الأوامر (71 أمر)", color=0x3498db)
