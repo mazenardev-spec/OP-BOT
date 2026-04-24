@@ -299,4 +299,4 @@ async def myid(i): await i.response.send_message(f"🆔 أيديك هو: {i.user
 @bot.tree.command(name="uptime", description="مدة عمل البوت بدون توقف")
 async def upt(i): await i.response.send_message("🕒 البوت يعمل منذ...")
 
-bot.run("TOKEN")
+bot.run(os.getenv("DISCORD_TOKEN"))
