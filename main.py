@@ -4,7 +4,7 @@ from discord.ui import Button, View
 import random, asyncio, json, os
 from datetime import datetime, timedelta
 
-# --- 1. قاعدة البيانات (متوافقة مع ريلوي) ---
+# --- 1. قاعدة البيانات ---
 def load_db():
     if not os.path.exists("op_data.json"):
         with open("op_data.json", "w", encoding="utf-8") as f:
@@ -14,61 +14,93 @@ def load_db():
 def save_db(data):
     with open("op_data.json", "w", encoding="utf-8") as f: json.dump(data, f, indent=4, ensure_ascii=False)
 
-# --- 2. نظام التيكت ---
+# --- 2. نظام التيكت المطور (الاستلام والقفل للصاحب فقط) ---
 class TicketActions(View):
-    def __init__(self): super().__init__(timeout=None)
-    @discord.ui.button(label="استلام ✋", style=discord.ButtonStyle.blurple, custom_id="claim_t")
-    async def claim(self, i, b):
-        if not i.user.guild_permissions.administrator: return await i.response.send_message("❌ للإدارة فقط", ephemeral=True)
-        await i.response.send_message(f"✅ استلم {i.user.mention} التذكرة"); b.disabled = True; await i.message.edit(view=self)
-    @discord.ui.button(label="إغلاق 🔒", style=discord.ButtonStyle.red, custom_id="close_t")
-    async def close(self, i, b):
-        if not i.user.guild_permissions.administrator: return await i.response.send_message("❌ للإدارة فقط", ephemeral=True)
-        await i.response.send_message("🔒 سيتم حذف القناة خلال 3 ثوانٍ..."); await asyncio.sleep(3); await i.channel.delete()
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.claimed_by = None  # تخزين أيدي الإداري اللي استلم
+
+    @discord.ui.button(label="استلام التذكرة ✋", style=discord.ButtonStyle.blurple, custom_id="claim_t")
+    async def claim(self, i: discord.Interaction, b: discord.ui.Button):
+        if not i.user.guild_permissions.administrator:
+            return await i.response.send_message("❌ هذا الزر مخصص للإدارة فقط!", ephemeral=True)
+        
+        self.claimed_by = i.user.id  # تسجيل المستلم
+        b.disabled = True
+        b.label = f"مستلمة بواسطة {i.user.name}"
+        
+        await i.channel.edit(name=f"claimed-{i.user.name}")
+        await i.response.edit_message(view=self)
+        await i.channel.send(f"✅ {i.user.mention} قام باستلام التذكرة وسيتم الرد عليك قريباً.")
+
+    @discord.ui.button(label="إغلاق التذكرة 🔒", style=discord.ButtonStyle.red, custom_id="close_t")
+    async def close(self, i: discord.Interaction, b: discord.ui.Button):
+        # التحقق: هل هو المستلم؟ أو هل هو أدمن سيرفر (احتياطاً)؟
+        if self.claimed_by is None:
+            if not i.user.guild_permissions.administrator:
+                return await i.response.send_message("❌ يجب استلام التذكرة أولاً قبل إغلاقها!", ephemeral=True)
+        elif i.user.id != self.claimed_by and not i.user.guild_permissions.manage_guild:
+            return await i.response.send_message(f"❌ فقط الإداري الذي استلم التذكرة (<@{self.claimed_by}>) يمكنه إغلاقها!", ephemeral=True)
+
+        await i.response.send_message("🔒 سيتم حذف القناة خلال 5 ثوانٍ...")
+        await asyncio.sleep(5)
+        await i.channel.delete()
 
 class TicketView(View):
     def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="فتح تذكرة 📩", style=discord.ButtonStyle.green, custom_id="op_t")
-    async def open_ticket(self, i, b):
-        overwrites = {i.guild.default_role: discord.PermissionOverwrite(view_channel=False), i.user: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
+    async def open_ticket(self, i: discord.Interaction, b: discord.ui.Button):
+        overwrites = {
+            i.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            i.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+            i.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        }
         ch = await i.guild.create_text_channel(f"ticket-{i.user.name}", overwrites=overwrites)
-        await ch.send(embed=discord.Embed(title="تذكرة جديدة", description="أهلاً بك، يرجى انتظار رد الإدارة."), view=TicketActions())
-        await i.response.send_message(f"✅ تم فتح تذكرتك هنا: {ch.mention}", ephemeral=True)
+        emb = discord.Embed(title="تذكرة دعم فني", description=f"مرحباً {i.user.mention}، سيقوم أحد الإداريين باستلام التذكرة قريباً.", color=0x2ecc71)
+        await ch.send(embed=emb, view=TicketActions())
+        await i.response.send_message(f"✅ تم فتح تذكرتك بنجاح: {ch.mention}", ephemeral=True)
 
-# --- 3. البوت الأساسي مع الحالة والفعالية ---
+# --- 3. البوت الأساسي مع الحالة القديمة والفعالية الفورية ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
         self.tree = app_commands.CommandTree(self)
     
     async def setup_hook(self):
-        self.add_view(TicketView()); self.add_view(TicketActions())
+        self.add_view(TicketView())
+        self.add_view(TicketActions())
         await self.tree.sync()
         self.loop.create_task(self.status_loop())
 
-    async def on_ready(self): print(f'✅ {self.user} Online!')
+    async def on_ready(self): 
+        print(f'✅ {self.user} Online and ready for work!')
 
     async def status_loop(self):
         while not self.is_closed():
-            sc = len(self.guilds)
-            await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"/help | {sc} Servers"))
-            await asyncio.sleep(1800)
+            # الحالة القديمة: /help | {عدد السيرفرات} Servers
+            servs = len(self.guilds)
+            activity = discord.Activity(type=discord.ActivityType.watching, name=f"/help | {servs} Servers")
+            await self.change_presence(activity=activity)
+            await asyncio.sleep(60)
 
     async def send_event_question(self, channel_id):
         ch = self.get_channel(int(channel_id))
         if ch:
             n1, n2 = random.randint(1, 100), random.randint(1, 100); ans = n1 + n2
-            await ch.send(f"🎮 **فعالية OP BOT:** ما ناتج {n1} + {n2}؟\nالجائزة: 500 كريدت!")
+            # منشن للكل عند نزول السؤال
+            await ch.send(f"@everyone\n🎮 **فعالية OP BOT الجديدة:** ما هو ناتج {n1} + {n2}؟\nالجائزة: 500 كريدت!")
+            
             def check(m): return m.channel == ch and m.content == str(ans) and not m.author.bot
             try:
                 win = await self.wait_for('message', check=check, timeout=60.0)
                 db = load_db(); u = str(win.author.id)
                 db["bank"][u] = db["bank"].get(u, 0) + 500; save_db(db)
-                await ch.send(f"✅ كفو {win.author.mention}! إجابة صحيحة وفزت بـ 500 كريدت.")
-            except asyncio.TimeoutError: await ch.send("⏰ انتهى الوقت ولم يعرف أحد الإجابة!")
+                await ch.send(f"✅ بطل {win.author.mention}! إجابة صحيحة، تم إضافة 500 كريدت لحسابك.")
+            except asyncio.TimeoutError: 
+                await ch.send("⏰ انتهى الوقت ولم يقم أحد بالإجابة بشكل صحيح.")
 
     async def auto_event_loop(self, channel_id):
-        await self.send_event_question(channel_id) # إرسال السؤال الأول فوراً
+        await self.send_event_question(channel_id) # أول سؤال فوراً
         while True:
             await asyncio.sleep(3600) # ثم كل ساعة
             db = load_db()
