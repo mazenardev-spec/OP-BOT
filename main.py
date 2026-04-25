@@ -4,21 +4,36 @@ from discord.ui import Button, View
 import random, asyncio, json, os, re
 from datetime import datetime, timedelta
 
-# --- 1. قاعدة البيانات ---
+# --- 1. قاعدة البيانات (اقتصاد عالمي + نظام سيرفرات للفل والإدارة) ---
 def load_db():
     if not os.path.exists("op_bot_db.json"):
         with open("op_bot_db.json", "w", encoding="utf-8") as f:
-            json.dump({"bank": {}, "wel_ch": None, "role_id": None, "replies": {}, "anti_link": False, "event_ch": None, "levels": {}}, f)
+            json.dump({"global_bank": {}, "guilds": {}}, f)
     with open("op_bot_db.json", "r", encoding="utf-8") as f: return json.load(f)
 
 def save_db(data):
     with open("op_bot_db.json", "w", encoding="utf-8") as f: json.dump(data, f, indent=4, ensure_ascii=False)
 
-def get_acc(db, uid):
+# لجلب الكريدت العالمي
+def get_global_user(db, uid):
     u = str(uid)
-    if u not in db["bank"]: db["bank"][u] = {"w": 0}
-    if u not in db["levels"]: db["levels"][u] = {"xp": 0, "lvl": 1}
-    return db["bank"][u], db["levels"][u]
+    if u not in db["global_bank"]: db["global_bank"][u] = {"w": 0}
+    return db["global_bank"][u]
+
+# لجلب إعدادات السيرفر (بما فيها اللفل الخاص بالسيرفر)
+def get_guild_data(db, gid):
+    g = str(gid)
+    if g not in db["guilds"]:
+        db["guilds"][g] = {
+            "wel_ch": None, "role_id": None, "event_ch": None, 
+            "anti_link": False, "replies": {}, "levels": {} # اللفل صار داخل السيرفر هنا
+        }
+    return db["guilds"][g]
+
+def get_user_guild_stats(g_data, uid):
+    u = str(uid)
+    if u not in g_data["levels"]: g_data["levels"][u] = {"xp": 0, "lvl": 1}
+    return g_data["levels"][u]
 
 # --- 2. نظام التيكت ---
 class TicketActions(View):
@@ -52,60 +67,76 @@ class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
         self.tree = app_commands.CommandTree(self)
-        self.event_active = False
-        self.event_answer = None
+        self.current_events = {}
 
     async def setup_hook(self):
         self.add_view(TicketView()); self.add_view(TicketActions())
         await self.tree.sync()
         self.loop.create_task(self.status_loop())
-        self.loop.create_task(self.auto_event_task())
+        self.loop.create_task(self.auto_event_loop())
 
     async def status_loop(self):
         await self.wait_until_ready()
         while not self.is_closed():
-            # الحفاظ على الحالة
             await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"OP BOT | Servers: {len(self.guilds)}"))
             await asyncio.sleep(1800)
 
-    async def send_event_math(self, channel):
-        n1, n2 = random.randint(1, 50), random.randint(1, 50)
-        self.event_answer = str(n1 + n2)
-        self.event_active = True
-        await channel.send(f"@everyone 💡 **سؤال الفعالية:** كم ناتج `{n1} + {n2} = ?`\nالجائزة: **1000** كريدت!")
-
-    async def auto_event_task(self):
+    async def auto_event_loop(self):
         await self.wait_until_ready()
         while not self.is_closed():
             await asyncio.sleep(3600)
             db = load_db()
-            if db.get("event_ch") and not self.event_active:
-                channel = self.get_channel(int(db["event_ch"]))
-                if channel: await self.send_event_math(channel)
+            for guild in self.guilds:
+                g_data = get_guild_data(db, guild.id)
+                if g_data["event_ch"]:
+                    ch = self.get_channel(int(g_data["event_ch"]))
+                    if ch:
+                        n1, n2 = random.randint(1, 50), random.randint(1, 50)
+                        self.current_events[guild.id] = str(n1 + n2)
+                        await ch.send(f"@everyone 💡 **سؤال الفعالية:** `{n1} + {n2} = ?` | الجائزة: **1000**")
+
+    async def on_member_join(self, member):
+        db = load_db()
+        g_data = get_guild_data(db, member.guild.id)
+        if g_data["role_id"]:
+            role = member.guild.get_role(int(g_data["role_id"]))
+            if role: await member.add_roles(role)
+        if g_data["wel_ch"]:
+            ch = self.get_channel(int(g_data["wel_ch"]))
+            if ch and ch.guild.id == member.guild.id:
+                emb = discord.Embed(title="🎉 عضو جديد!", description=f"أهلاً {member.mention} في {member.guild.name}", color=0x3498db)
+                await ch.send(embed=emb)
 
     async def on_message(self, msg):
-        if msg.author.bot: return
+        if msg.author.bot or not msg.guild: return
         db = load_db()
-        bank, lvls = get_acc(db, msg.author.id)
+        
+        # بيانات السيرفر (للفل والإدارة)
+        g_data = get_guild_data(db, msg.guild.id)
+        lvls = get_user_guild_stats(g_data, msg.author.id)
+        
+        # الكريدت (عالمي)
+        user_bank = get_global_user(db, msg.author.id)
 
-        if self.event_active and db.get("event_ch") and msg.channel.id == int(db["event_ch"]):
-            if msg.content == self.event_answer:
-                self.event_active = False
-                bank["w"] += 1000; save_db(db)
-                await msg.reply(f"✅ مبروك {msg.author.mention}! فزت بـ 1000 كريدت.")
+        # فعاليات
+        if msg.guild.id in self.current_events and msg.channel.id == int(g_data.get("event_ch", 0)):
+            if msg.content == self.current_events[msg.guild.id]:
+                del self.current_events[msg.guild.id]
+                user_bank["w"] += 1000; save_db(db)
+                await msg.reply(f"✅ مبروك {msg.author.mention}! فزت بـ 1000 كريدت عالمي.")
 
-        # نظام XP ولفل تلقائي
+        # نظام لفل (خاص بالسيرفر)
         lvls["xp"] += random.randint(5, 15)
         needed = lvls["lvl"] * 100
         if lvls["xp"] >= needed:
             lvls["lvl"] += 1; lvls["xp"] = 0
-            await msg.channel.send(f"🎊 مبروك {msg.author.mention}! ترقيت للفل **{lvls['lvl']}** في سيرفر **{msg.guild.name}**")
+            await msg.channel.send(f"🎊 مبروك {msg.author.mention}! ارتفع لفلك في هذا السيرفر لـ **{lvls['lvl']}**")
         save_db(db)
 
 bot = OPBot()
 
 # --- 4. فئة الإدارة (25 أمر) ---
-@bot.tree.command(name="show-level", description="يوريك المستوى (اللفل) الحالي حقك")
+@bot.tree.command(name="show-level", description="اظهار مستواك")
 async def show_level(i, m: discord.Member = None):
     m = m or i.user; db = load_db(); _, l = get_acc(db, m.id)
     await i.response.send_message(f"📊 لفل **{m.name}** الحالي هو: `{l['lvl']}`")
@@ -172,11 +203,12 @@ async def sticket(i, ch: discord.TextChannel, title: str):
     await ch.send(embed=emb, view=TicketView())
     await i.response.send_message(f"✅ تم تركيب التيكت في {ch.mention} بعنوان: **{title}**")
     
-@bot.tree.command(name="set-welcome", description="روم الترحيب")
+@bot.tree.command(name="set-welcome", description="تحديد روم الترحيب")
 async def swel(i, ch: discord.TextChannel):
-    db = load_db(); db["wel_ch"] = str(ch.id); save_db(db)
-    await i.response.send_message(f"✅ تم تحديد {ch.mention}")
-
+    db = load_db(); g_data = get_guild_data(db, i.guild.id)
+    g_data["wel_ch"] = str(ch.id); save_db(db)
+    await i.response.send_message(f"✅ تم تحديد {ch.mention} للترحيب هنا.")
+    
 @bot.tree.command(name="set-autorole", description="رتبة تلقائية")
 async def adm14(i, r: discord.Role): db=load_db(); db["role_id"]=str(r.id); save_db(db); await i.response.send_message("✅ تم")
 
@@ -186,7 +218,7 @@ async def adm15(i, word: str, reply: str): db=load_db(); db["replies"][word]=rep
 @bot.tree.command(name="del-autoreply", description="حذف رد")
 async def adm16(i, word: str): db=load_db(); db["replies"].pop(word, None); save_db(db); await i.response.send_message("🗑️ تم")
 
-@@bot.tree.command(name="set-autoevent", description="تحديد روم الفعاليات (يرسل أول سؤال فوراً)")
+@@bot.tree.command(name="set-autoevent", description="تحديد روم فاعليات")
 async def sevent(i, ch: discord.TextChannel):
     db=load_db(); db["event_ch"]=str(ch.id); save_db(db)
     await i.response.send_message(f"✅ تم التفعيل في {ch.mention} وسيبدأ أول سؤال الآن.")
@@ -214,8 +246,10 @@ async def adm23(i, m: discord.Member): await m.edit(mute=False); await i.respons
 async def adm25(i, n: str): await i.guild.edit(name=n); await i.response.send_message("🏰 تم")
 
 # --- 5. أوامر الاقتصاد (20 أمراً) ---
-@bot.tree.command(name="credits", description="رصيدك")
-async def eco1(i, m: discord.Member=None): m=m or i.user; db=load_db(); b, _ = get_acc(db, m.id); await i.response.send_message(f"💳 رصيد {m.name}: `{b['w']}`")
+@bot.tree.command(name="credits", description="اظهار الرصيد")
+async def credits(i, m: discord.Member=None):
+    m = m or i.user; db = load_db(); u = get_global_user(db, m.id)
+    await i.response.send_message(f"💳 رصيد {m.name} العالمي: `{u['w']}`")
 
 @bot.tree.command(name="transfer", description="تحويل كريدت مع إيصال")
 async def eco2(i, m: discord.Member, a: int):
