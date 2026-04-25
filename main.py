@@ -4,15 +4,11 @@ from discord.ui import Button, View
 import random, asyncio, json, os, re
 from datetime import datetime, timedelta
 
-# --- 1. قاعدة البيانات المتقدمة ---
+# --- 1. قاعدة البيانات ---
 def load_db():
     if not os.path.exists("op_bot_db.json"):
         with open("op_bot_db.json", "w", encoding="utf-8") as f:
-            json.dump({
-                "bank": {}, "wel_ch": None, "role_id": None, 
-                "replies": {}, "anti_link": False, "event_ch": None,
-                "levels": {}
-            }, f)
+            json.dump({"bank": {}, "wel_ch": None, "role_id": None, "replies": {}, "anti_link": False, "event_ch": None, "levels": {}}, f)
     with open("op_bot_db.json", "r", encoding="utf-8") as f: return json.load(f)
 
 def save_db(data):
@@ -24,37 +20,34 @@ def get_acc(db, uid):
     if u not in db["levels"]: db["levels"][u] = {"xp": 0, "lvl": 1}
     return db["bank"][u], db["levels"][u]
 
-# --- 2. نظام التيكت المطور ---
+# --- 2. نظام التيكت ---
 class TicketActions(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.claimed_by = None 
 
-    @discord.ui.button(label="استلام ✋", style=discord.ButtonStyle.blurple, custom_id="claim_t")
+    @discord.ui.button(label="استلام التذكرة ✋", style=discord.ButtonStyle.blurple, custom_id="claim_t")
     async def claim(self, i: discord.Interaction, b: discord.ui.Button):
         if not i.user.guild_permissions.administrator: return await i.response.send_message("❌ للإدارة فقط!", ephemeral=True)
         self.claimed_by = i.user.id
         b.disabled = True; b.label = f"مستلمة بواسطة {i.user.name}"
         await i.channel.edit(name=f"claimed-{i.user.name}")
         await i.response.edit_message(view=self)
-        await i.channel.send(f"✅ {i.user.mention} استلم التذكرة.")
 
     @discord.ui.button(label="إغلاق 🔒", style=discord.ButtonStyle.red, custom_id="close_t")
     async def close(self, i: discord.Interaction, b: discord.ui.Button):
-        if self.claimed_by and i.user.id != self.claimed_by and not i.user.guild_permissions.administrator:
-            return await i.response.send_message("❌ القفل للمستلم أو الإدارة فقط!", ephemeral=True)
-        await i.response.send_message("🔒 سيتم الحذف خلال 5 ثوانٍ..."); await asyncio.sleep(5); await i.channel.delete()
+        await i.response.send_message("🔒 حذف خلال 5 ثوانٍ..."); await asyncio.sleep(5); await i.channel.delete()
 
 class TicketView(View):
     def __init__(self): super().__init__(timeout=None)
-    @discord.ui.button(label="فتح تذكرة 📩", style=discord.ButtonStyle.green, custom_id="open_t")
+    @discord.ui.button(label="فتح تذكرة دعم 📩", style=discord.ButtonStyle.green, custom_id="open_t")
     async def open_t(self, i: discord.Interaction, b: discord.ui.Button):
         overwrites = {i.guild.default_role: discord.PermissionOverwrite(view_channel=False), i.user: discord.PermissionOverwrite(view_channel=True, send_messages=True), i.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
         ch = await i.guild.create_text_channel(f"ticket-{i.user.name}", overwrites=overwrites)
-        await ch.send(f"أهلاً {i.user.mention}، يرجى انتظار فريق الإدارة.", view=TicketActions())
+        await ch.send(f"أهلاً {i.user.mention}، يرجى انتظار المستلم.", view=TicketActions())
         await i.response.send_message(f"✅ تم فتح تذكرتك: {ch.mention}", ephemeral=True)
 
-# --- 3. البوت والفعاليات ---
+# --- 3. البوت الأساسي ---
 class OPBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
@@ -71,61 +64,59 @@ class OPBot(discord.Client):
     async def status_loop(self):
         await self.wait_until_ready()
         while not self.is_closed():
+            # الحفاظ على الحالة
             await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"OP BOT | Servers: {len(self.guilds)}"))
             await asyncio.sleep(1800)
+
+    async def send_event_math(self, channel):
+        n1, n2 = random.randint(1, 50), random.randint(1, 50)
+        self.event_answer = str(n1 + n2)
+        self.event_active = True
+        await channel.send(f"@everyone 💡 **سؤال الفعالية:** كم ناتج `{n1} + {n2} = ?`\nالجائزة: **1000** كريدت!")
 
     async def auto_event_task(self):
         await self.wait_until_ready()
         while not self.is_closed():
+            await asyncio.sleep(3600)
             db = load_db()
             if db.get("event_ch") and not self.event_active:
                 channel = self.get_channel(int(db["event_ch"]))
-                if channel:
-                    n1, n2 = random.randint(1, 100), random.randint(1, 100)
-                    self.event_answer = str(n1 + n2)
-                    self.event_active = True
-                    await channel.send(f"@everyone 💡 **سؤال الفعالية:** كم ناتج `{n1} + {n2}`؟\nالجائزة: **1000 كريدت**")
-            await asyncio.sleep(3600)
-
-    async def on_member_join(self, member):
-        db = load_db()
-        if db.get("role_id"):
-            role = member.guild.get_role(int(db["role_id"]))
-            if role: await member.add_roles(role)
-        if db.get("wel_ch"):
-            channel = self.get_channel(int(db["wel_ch"]))
-            if channel:
-                emb = discord.Embed(title="🎉 عضو جديد!", description=f"أهلاً {member.mention} في {member.guild.name}", color=0x00ff00)
-                emb.set_thumbnail(url=member.display_avatar.url)
-                await channel.send(embed=emb)
+                if channel: await self.send_event_math(channel)
 
     async def on_message(self, msg):
         if msg.author.bot: return
         db = load_db()
         bank, lvls = get_acc(db, msg.author.id)
 
-        # فعاليات
         if self.event_active and db.get("event_ch") and msg.channel.id == int(db["event_ch"]):
             if msg.content == self.event_answer:
                 self.event_active = False
-                bank["w"] += 1000
-                save_db(db)
-                await msg.reply(f"✅ كفو {msg.author.mention}! إجابة صحيحة وفزت بـ 1000 كريدت.")
+                bank["w"] += 1000; save_db(db)
+                await msg.reply(f"✅ مبروك {msg.author.mention}! فزت بـ 1000 كريدت.")
 
-        # نظام لفل
+        # نظام XP ولفل تلقائي
         lvls["xp"] += random.randint(5, 15)
-        if lvls["xp"] >= (lvls["lvl"] * 100):
+        needed = lvls["lvl"] * 100
+        if lvls["xp"] >= needed:
             lvls["lvl"] += 1; lvls["xp"] = 0
-            await msg.channel.send(f"🎊 مبروك {msg.author.mention}! صعدت للفل **{lvls['lvl']}** في {msg.guild.name}")
+            await msg.channel.send(f"🎊 مبروك {msg.author.mention}! ترقيت للفل **{lvls['lvl']}** في سيرفر **{msg.guild.name}**")
         save_db(db)
-
-        if db.get("anti_link") and re.search(r'(https?://|discord\.gg/)', msg.content):
-            if not msg.author.guild_permissions.administrator: await msg.delete(); return
-        if msg.content in db.get("replies", {}): await msg.channel.send(db["replies"][msg.content])
 
 bot = OPBot()
 
 # --- 4. فئة الإدارة (25 أمر) ---
+@bot.tree.command(name="show-level", description="يوريك المستوى (اللفل) الحالي حقك")
+async def show_level(i, m: discord.Member = None):
+    m = m or i.user; db = load_db(); _, l = get_acc(db, m.id)
+    await i.response.send_message(f"📊 لفل **{m.name}** الحالي هو: `{l['lvl']}`")
+
+@bot.tree.command(name="show-xp", description="يوريك نقاط الخبرة (XP) حقك")
+async def show_xp(i, m: discord.Member = None):
+    m = m or i.user; db = load_db(); _, l = get_acc(db, m.id)
+    needed = l['lvl'] * 100
+    await i.response.send_message(f"✨ نقاط خبرة **{m.name}**: `{l['xp']}/{needed}` XP")
+
+
 @bot.tree.command(name="ban", description="حظر عضو + إرسال خاص")
 async def adm1(i, m: discord.Member, r: str="غير محدد"):
     try: await m.send(f"⚠️ تم حظرك من **{i.guild.name}** | السبب: {r}")
@@ -175,9 +166,12 @@ async def adm11(i): db=load_db(); db["anti_link"]=True; save_db(db); await i.res
 @bot.tree.command(name="remove-antilink", description="تعطيل مانع الروابط")
 async def adm12(i): db=load_db(); db["anti_link"]=False; save_db(db); await i.response.send_message("🔓 تم التعطيل")
 
-@bot.tree.command(name="set-ticket", description="نظام التيكت")
-async def adm13(i, ch: discord.TextChannel): await ch.send("📩 افتح تذكرة", view=TicketView()); await i.response.send_message("✅ تم")
-
+@bot.tree.command(name="set-ticket", description="تركيب نظام التيكت مع عنوان مخصص")
+async def sticket(i, ch: discord.TextChannel, title: str):
+    emb = discord.Embed(title=title, description="اضغط على الزر أدناه لفتح تذكرة تواصل مع الإدارة.", color=discord.Color.blue())
+    await ch.send(embed=emb, view=TicketView())
+    await i.response.send_message(f"✅ تم تركيب التيكت في {ch.mention} بعنوان: **{title}**")
+    
 @bot.tree.command(name="set-welcome", description="روم الترحيب")
 async def swel(i, ch: discord.TextChannel):
     db = load_db(); db["wel_ch"] = str(ch.id); save_db(db)
@@ -192,11 +186,12 @@ async def adm15(i, word: str, reply: str): db=load_db(); db["replies"][word]=rep
 @bot.tree.command(name="del-autoreply", description="حذف رد")
 async def adm16(i, word: str): db=load_db(); db["replies"].pop(word, None); save_db(db); await i.response.send_message("🗑️ تم")
 
-@bot.tree.command(name="set-autoevent", description="روم الفعاليات")
-async def setevt(i, ch: discord.TextChannel):
-    db = load_db(); db["event_ch"] = str(ch.id); save_db(db)
-    await i.response.send_message(f"✅ الفعاليات في {ch.mention}")
-
+@@bot.tree.command(name="set-autoevent", description="تحديد روم الفعاليات (يرسل أول سؤال فوراً)")
+async def sevent(i, ch: discord.TextChannel):
+    db=load_db(); db["event_ch"]=str(ch.id); save_db(db)
+    await i.response.send_message(f"✅ تم التفعيل في {ch.mention} وسيبدأ أول سؤال الآن.")
+    await bot.send_event_math(ch) # إرسال السؤال فوراً عند التفعيل
+    
 @bot.tree.command(name="slowmode", description="وضع البطء")
 async def adm17(i, s: int): await i.channel.edit(slowmode_delay=s); await i.response.send_message(f"🐢 {s}ث")
 
@@ -342,13 +337,13 @@ async def rank(i, m: discord.Member=None):
 async def ping(i): await i.response.send_message(f"🏓 {round(bot.latency*1000)}ms")
 
 # --- 8. أمر المساعدة ---
-@bot.tree.command(name="help", description="عرض جميع الأوامر")
+@bot.tree.command(name="help", description="عرض جميع فئات الأوامر")
 async def help(i):
-    emb = discord.Embed(title="📜 قائمة أوامر OP BOT الشاملة", color=discord.Color.green())
-    emb.add_field(name="🛡️ الإدارة", value="`ban`, `kick`, `timeout`, `clear`, `set-welcome`, `set-ticket`, `set-autoevent`, `set-autorole`...", inline=False)
-    emb.add_field(name="💰 الاقتصاد (20)", value="`credits`, `transfer`, `daily`, `work`, `top`, `fish`, `hunt`, `slots`, `roulette`, `beg`...", inline=False)
-    emb.add_field(name="🎉 الترفيه (15)", value="`iq`, `love`, `hack`, `slap`, `kill`, `joke`, `dice`, `choose`, `dance`...", inline=False)
-    emb.add_field(name="⚙️ النظام واللفل", value="`rank`, `ping`, `avatar`, `server`, `id`, `stats`", inline=False)
+    emb = discord.Embed(title="📜 قائمة أوامر OP BOT", color=discord.Color.green())
+    emb.add_field(name="🛡️ الإدارة", value="`ban`, `kick`, `timeout`, `clear`, `set-welcome`, `set-ticket`, `set-autoevent`, `set-autorole`", inline=False)
+    emb.add_field(name="💰 الاقتصاد", value="`credits`, `transfer`, `daily`, `work`, `top`, `fish`, `hunt`, `slots`, `roulette`, `beg`", inline=False)
+    emb.add_field(name="🎉 الترفيه", value="`iq`, `love`, `hack`, `slap`, `kill`, `joke`, `dice`, `choose`, `dance`", inline=False)
+    emb.add_field(name="⚙️ النظام واللفل", value="`show-level`, `show-xp`, `rank`, `ping`, `avatar`, `id`, `stats`", inline=False)
     await i.response.send_message(embed=emb)
-
+    
 bot.run(os.getenv("DISCORD_TOKEN"))
