@@ -181,10 +181,24 @@ async def adm10(i, r: discord.Role):
 async def adm11(i, word: str, reply: str):
     await i.response.defer(); db=load_db(); get_guild(db, i.guild.id)["replies"][word]=reply; save_db(db); await i.followup.send("✅ تم إضافة الرد")
 
-@bot.tree.command(name="set-autoevent", description="تحديد روم الفعاليات")
-async def adm12(i, ch: discord.TextChannel):
-    await i.response.defer(); db=load_db(); get_guild(db, i.guild.id)["ev_ch"]=str(ch.id); save_db(db); await i.followup.send("✅ تفعيل الفعاليات")
-
+@bot.tree.command(name="set-autoevent", description="تحديد روم المسابقات والفعاليات التلقائية")
+async def adm12(i: discord.Interaction, ch: discord.TextChannel):
+    # نخليه يفكر ويرد رد مخفي عشان ما يزعج الأعضاء
+    await i.response.defer(ephemeral=True) 
+    
+    try:
+        db = load_db()
+        gd = get_guild(db, i.guild.id)
+        gd["ev_ch"] = str(ch.id)
+        save_db(db)
+        
+        # أهم خطوة: الرد بـ followup عشان يشيل الـ thinking
+        await i.followup.send(f"✅ تم تفعيل نظام الفعاليات في قناة: {ch.mention}", ephemeral=True)
+    except Exception as e:
+        # لو فيه خطأ في الملف يطبع لك شو السبب
+        print(f"Error in set-autoevent: {e}")
+        await i.followup.send("❌ حدث خطأ أثناء حفظ البيانات، حاول مرة أخرى.")
+        
 @bot.tree.command(name="remove-autoevent", description="إلغاء الفعاليات التلقائية")
 async def adm13(i):
     await i.response.defer(); db=load_db(); get_guild(db, i.guild.id)["ev_ch"]=None; save_db(db); await i.followup.send("🗑️ تم الإلغاء")
@@ -262,10 +276,32 @@ async def eco6(i):
 async def eco7(i):
     await i.response.defer(); r=random.randint(50, 300); db=load_db(); u=get_user(db, i.user.id); u["w"]+=r; save_db(db); await i.followup.send(f"🎣 اصطدت سمكة بعتها بـ `{r}`")
 
-@bot.tree.command(name="transfer", description="تحويل مال لعضو")
-async def eco8(i, m: discord.Member, a: int):
-    await i.response.defer(); db=load_db(); u=get_user(db, i.user.id); t=get_user(db, m.id)
-    if u["w"] < a: return await i.followup.send("❌ رصيدك قليل"); u["w"]-=a; t["w"]+=a; save_db(db); await i.followup.send("✅ تم التحويل")
+@bot.tree.command(name="transfer", description="تحويل مال لعضو من حسابك")
+async def eco8(i: discord.Interaction, m: discord.Member, a: int):
+    await i.response.defer() # البوت بيبدأ يفكر
+    
+    if a <= 0:
+        return await i.followup.send("❌ لا يمكنك تحويل مبلغ أقل من 1!")
+    
+    if m.id == i.user.id:
+        return await i.followup.send("❌ لا يمكنك التحويل لنفسك!")
+
+    db = load_db()
+    u = get_user(db, i.user.id)
+    t = get_user(db, m.id)
+
+    if u["w"] < a:
+        return await i.followup.send("❌ رصيدك قليل، لا يمكنك إتمام العملية.")
+
+    # تنفيذ العملية الحسابية
+    u["w"] -= a
+    t["w"] += a
+    
+    # حفظ البيانات ضروري جداً
+    save_db(db)
+    
+    # إرسال رسالة النجاح (دي اللي بتشيل كلمة Thinking)
+    await i.followup.send(f"✅ تم تحويل `{a}` كريدت بنجاح إلى {m.mention}")
 
 @bot.tree.command(name="slots", description="مراهنة في لعبة السلوتس")
 async def eco9(i, a: int): await i.response.defer(); await i.followup.send("🎰 خيارات عشوائية وفزت بضعف المبلغ!")
