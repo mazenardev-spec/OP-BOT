@@ -250,8 +250,7 @@ async def adm22(i, m: discord.Member): await m.edit(mute=True); await i.response
 @bot.tree.command(name="vunmute", description="فك كتم")
 async def adm23(i, m: discord.Member): await m.edit(mute=False); await i.response.send_message("🔊 تم")
 
-@bot.tree.command(name="set-name", description="اسم السيرفر")
-async def adm25(i, n: str): await i.guild.edit(name=n); await i.response.send_message("🏰 تم")
+
 
 # --- 5. أوامر الاقتصاد (20 أمراً) ---
 @bot.tree.command(name="credits", description="اظهار الرصيد")
