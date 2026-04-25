@@ -315,21 +315,6 @@ async def eco11(i): await i.response.defer(); r=random.randint(1, 50); await i.f
 @bot.tree.command(name="rob", description="محاولة سرقة عضو (مخاطرة)")
 async def eco12(i, m: discord.Member): await i.response.defer(); await i.followup.send("🔫 حاولت تسرقه والشرطة صادوك!")
 
-@bot.tree.command(name="give-money", description="إضافة مال لعضو (للإدارة)")
-async def eco13(i, m: discord.Member, a: int): await i.response.defer(); db=load_db(); get_user(db, m.id)["w"]+=a; save_db(db); await i.followup.send("💸 تم المنح")
-
-@bot.tree.command(name="remove-money", description="سحب مال من عضو (للإدارة)")
-async def eco14(i, m: discord.Member, a: int): await i.response.defer(); db=load_db(); get_user(db, m.id)["w"]-=a; save_db(db); await i.followup.send("📉 تم السحب")
-
-@bot.tree.command(name="shop", description="عرض متجر البوت")
-async def eco15(i): await i.response.defer(); await i.followup.send("🛒 المتجر قيد التطوير")
-
-@bot.tree.command(name="buy", description="شراء منتج من المتجر")
-async def eco16(i, item: str): await i.response.defer(); await i.followup.send(f"📦 اشتريت {item} بنجاح")
-
-@bot.tree.command(name="bag", description="عرض حقيبتك وممتلكاتك")
-async def eco17(i): await i.response.defer(); await i.followup.send("🎒 حقيبتك فارغة حالياً")
-
 @bot.tree.command(name="roulette", description="لعبة الروليت الاقتصادية")
 async def eco18(i, a: int): await i.response.defer(); await i.followup.send("🎡 لفيت الروليت وكسبت!")
 
