@@ -213,20 +213,28 @@ async def swel(i, ch: discord.TextChannel):
 async def adm14(i, r: discord.Role): db=load_db(); db["role_id"]=str(r.id); save_db(db); await i.response.send_message("✅ تم")
 
 @bot.tree.command(name="set-autoreply", description="إضافة رد")
-async def adm15(i, word: str, reply: str): db=load_db(); db["replies"][word]=reply; save_db(db); await i.response.send_message("📝 تم")
+async def adm15(i, word: str, reply: str): 
+    db=load_db(); g_data=get_guild_data(db, i.guild.id)
+    g_data["replies"][word]=reply; save_db(db)
+    await i.response.send_message("📝 تم إضافة الرد التلقائي")
 
 @bot.tree.command(name="del-autoreply", description="حذف رد")
-async def adm16(i, word: str): db=load_db(); db["replies"].pop(word, None); save_db(db); await i.response.send_message("🗑️ تم")
+async def adm16(i, word: str): 
+    db=load_db(); g_data=get_guild_data(db, i.guild.id)
+    g_data["replies"].pop(word, None); save_db(db)
+    await i.response.send_message("🗑️ تم حذف الرد")
 
-@@bot.tree.command(name="set-autoevent", description="تحديد روم فاعليات")
+@bot.tree.command(name="set-autoevent", description="تحديد روم فاعليات")
 async def sevent(i, ch: discord.TextChannel):
-    db=load_db(); db["event_ch"]=str(ch.id); save_db(db)
+    db=load_db(); g_data=get_guild_data(db, i.guild.id)
+    g_data["event_ch"]=str(ch.id); save_db(db)
     await i.response.send_message(f"✅ تم التفعيل في {ch.mention} وسيبدأ أول سؤال الآن.")
-    await bot.send_event_math(ch) # إرسال السؤال فوراً عند التفعيل
+    await bot.send_event_math(i.guild.id, ch) 
     
 @bot.tree.command(name="slowmode", description="وضع البطء")
-async def adm17(i, s: int): await i.channel.edit(slowmode_delay=s); await i.response.send_message(f"🐢 {s}ث")
-
+async def adm17(i, s: int): 
+    await i.channel.edit(slowmode_delay=s)
+    await i.response.send_message(f"🐢 تم وضع البطء: {s} ثانية")
 @bot.tree.command(name="nick", description="تغيير لقب")
 async def adm18(i, m: discord.Member, n: str): await m.edit(nick=n); await i.response.send_message("✏️ تم")
 
