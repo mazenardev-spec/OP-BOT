@@ -351,4 +351,4 @@ async def help(i):
     emb.add_field(name="⚙️ النظام واللفل", value="`rank`, `ping`, `avatar`, `server`, `id`, `stats`", inline=False)
     await i.response.send_message(embed=emb)
 
-bot.run("TOKEN")
+bot.run(os.getenv("DISCORD_TOKEN"))
