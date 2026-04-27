@@ -156,4 +156,4 @@ client.on('interactionCreate', async i => {
     if (!i.replied) i.reply({ content: `✅ الأمر **${commandName}** يعمل بنجاح ضمن أنظمة OP BOT.`, ephemeral: true });
 });
 
-client.login('TOKEN_HERE');
+client.login('DISCORD_TOKEN');
