@@ -112,7 +112,7 @@ class OPBot(discord.Client):
         if b.name != a.name:
             await self.send_log(a.guild, discord.Embed(title="📝 تغيير اسم قناة", description=f"**من:** {b.name}\n**إلى:** {a.name}", color=0x0000ff))
 
-   async def on_member_join(self, m):
+async def on_member_join(self, m):
         db = load_db()
         gd = get_guild(db, m.guild.id)
         
@@ -121,33 +121,32 @@ class OPBot(discord.Client):
             role = m.guild.get_role(int(gd["arole"]))
             if role: 
                 try: await m.add_roles(role)
-                except: print(f"Failed to add role in {m.guild.name}")
+                except: print(f"فشل إضافة رتبة في {m.guild.name}")
 
         # 2. نظام الترحيب بالصور
         if gd.get("wel"):
             ch = self.get_channel(int(gd["wel"]))
             if ch:
                 try:
-                    # إعداد الخلفية السوداء
+                    # تصميم الخلفية
                     background = Editor(Canvas((800, 450), color="#0c0c0c")) 
                     
-                    # سحب صورة الشخص اللي دخل وقصها دائرة
+                    # صورة الشخص اللي دخل (تلقائي)
                     avatar_img = await load_image_async(str(m.display_avatar.url))
                     profile = Editor(avatar_img).resize((200, 200)).circle_image()
                     
-                    # وضع الصورة في التصميم
                     background.paste(profile, (300, 50))
                     
-                    # النصوص بالألوان واللغة اللي طلبتها
+                    # نصوص الترحيب
                     background.text((400, 280), "منور السيرفر يا بطل", color="#4ade80", align="center")
                     background.text((400, 340), f"{m.name}", color="white", align="center")
-                    background.text((400, 390), f"في سيرفر: {m.guild.name}", color="#71717a", align="center")
+                    background.text((400, 400), f"في سيرفر: {m.guild.name}", color="#71717a", align="center")
 
                     # إرسال الصورة
                     file = discord.File(fp=background.image_bytes, filename="welcome.png")
-                    await ch.send(f"منوووووووور جيت المكان الصح {m.mention}", file=file)
+                    await ch.send(f"منوووووووور يا {m.mention} جيت المكان الصح!", file=file)
                 except Exception as e:
-                    print(f"Error: {e}")
+                    print(f"خطأ في الصورة: {e}")
                     await ch.send(f"🎉 أهلاً بك {m.mention} في {m.guild.name}")
                     
     async def on_message(self, msg):
