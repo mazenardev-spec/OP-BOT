@@ -6,7 +6,7 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-// --- 1. إدارة قاعدة البيانات ---
+// --- 1. إدارة قاعدة البياناتب ---
 const dbPath = './op_bot_db.json';
 function loadDB() {
     if (!fs.existsSync(dbPath)) fs.writeFileSync(dbPath, JSON.stringify({ bank: {}, guilds: {} }));
