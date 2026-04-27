@@ -153,29 +153,72 @@ client.on('guildMemberAdd', async member => {
 // --- 4. تنفيذ الأوامر (الإدارة والاقتصاد) ---
 client.on('interactionCreate', async i => {
     if (!i.isChatInputCommand()) return;
+    
     const db = loadDB();
     const { commandName, options, user, guild, channel } = i;
 
-    // معالجة الأوامر الإدارية
-    if (commandName === 'clear') {
-        const amt = options.getInteger('amount');
-        await channel.bulkDelete(amt > 100 ? 100 : amt);
-        return i.reply({ content: `🧹 تم مسح ${amt} رسالة`, ephemeral: true });
+    // منع خطأ "The application did not respond" عن طريق الرد الأولي إذا كان الأمر سيأخذ وقتاً
+    // لكن هنا سنستخدم الرد المباشر لكل حالة
+
+    try {
+        // الإدارة
+        if (commandName === 'clear') {
+            const amt = options.getInteger('amount');
+            await channel.bulkDelete(amt > 100 ? 100 : amt);
+            return i.reply({ content: `🧹 تم مسح ${amt} رسالة`, ephemeral: true });
+        }
+        if (commandName === 'lock') {
+            await channel.permissionOverwrites.edit(guild.id, { SendMessages: false });
+            return i.reply('🔒 تم قفل القناة');
+        }
+        if (commandName === 'ping') {
+            return i.reply(`🏓 Pong! \`${client.ws.ping}ms\``);
+        }
+        if (commandName === 'set-welcome') {
+            getGuild(db, guild.id).wel = options.getChannel('channel').id;
+            saveDB(db);
+            return i.reply('✅ تم ضبط قناة الترحيب بنجاح!');
+        }
+
+        // الاقتصاد البسيط
+        if (commandName === 'work') {
+            const r = Math.floor(Math.random() * 800) + 200;
+            getUser(db, user.id).w += r;
+            saveDB(db);
+            return i.reply(`💼 عملت بجد وكسبت **${r}** من العملات!`);
+        }
+
+        // تيكت
+        if (commandName === 'set-ticket') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('op_t').setLabel('فتح تذكرة').setStyle(ButtonStyle.Primary)
+            );
+            await options.getChannel('channel').send({ content: '**نظام الدعم الفني | OP BOT**\nاضغط على الزر أدناه لفتح تذكرة.', components: [row] });
+            return i.reply('✅ تم إرسال رسالة التيكت.');
+        }
+
+        // --- رد تلقائي للأوامر الـ 70 التي لم تبرمجها بعد ---
+        // هذا الجزء هو الحل السحري لمشكلة "The application did not respond"
+        if (!i.replied) {
+            return i.reply({ 
+                content: `🛠️ الأمر **/${commandName}** قيد التجهيز وسيتم إطلاقه في التحديث القادم لـ **OP BOT**!`, 
+                ephemeral: true 
+            });
+        }
+
+    } catch (err) {
+        console.error(err);
+        if (!i.replied) i.reply({ content: '❌ حدث خطأ داخلي أثناء تنفيذ هذا الأمر.', ephemeral: true });
     }
-    if (commandName === 'lock') {
-        await channel.permissionOverwrites.edit(guild.id, { SendMessages: false });
-        return i.reply('🔒 تم قفل القناة');
-    }
-    // ... أضف هنا باقي منطق الـ 70 أمر ...
-    
-    if (commandName === 'ping') return i.reply(`🏓 Pong! \`${client.ws.ping}ms\``);
-    
+
     saveDB(db);
 });
 
 // --- 5. نظام التيكت ---
 client.on('interactionCreate', async i => {
-    if (i.isButton() && i.customId === 'op_t') {
+    if (!i.isButton()) return;
+
+    if (i.customId === 'op_t') {
         const tc = await i.guild.channels.create({
             name: `ticket-${i.user.username}`,
             type: ChannelType.GuildText,
@@ -184,13 +227,14 @@ client.on('interactionCreate', async i => {
                 { id: i.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
             ]
         });
-        i.reply({ content: `تم فتح التيكت: ${tc}`, ephemeral: true });
+        i.reply({ content: `تم فتح تذكرتك هنا: ${tc}`, ephemeral: true });
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('cl_t').setLabel('إغلاق').setStyle(ButtonStyle.Danger));
-        tc.send({ content: `نورت يا ${i.user}`, components: [row] });
+        tc.send({ content: `مرحباً بك ${i.user} في الدعم الفني، يرجى كتابة مشكلتك وسيرد عليك الإدارة قريباً.`, components: [row] });
     }
-    if (i.isButton() && i.customId === 'cl_t') {
-        i.reply('🔒 سيتم حذف التذكرة خلال لحظات...');
-        setTimeout(() => i.channel.delete(), 2000);
+    
+    if (i.customId === 'cl_t') {
+        i.reply('🔒 سيتم حذف التذكرة نهائياً خلال 5 ثوانٍ...');
+        setTimeout(() => i.channel.delete().catch(() => {}), 5000);
     }
 });
 
