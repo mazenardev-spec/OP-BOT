@@ -28,9 +28,20 @@ const client = new Client({
 });
 
 // --- 2. مصفوفة الـ 70 أمر (التسجيل) ---
+// --- 2. مصفوفة الـ 70 أمر (التسجيل) ---
 client.once('ready', async () => {
-    console.log(`✅ OP BOT Online | User: ${client.user.tag}`);
-    
+    console.log(`✅ ${client.user.tag} Online!`);
+
+    // تحديث الحالة فور تشغيل البوت
+    const updateStatus = () => {
+        const statusText = `/help | ${client.guilds.cache.size} Servers`;
+        client.user.setActivity(statusText, { type: ActivityType.Watching });
+    };
+
+    updateStatus(); 
+    setInterval(updateStatus, 3600000); 
+
+    // مصفوفة الأوامر لازم تكون داخل الـ ready عشان تتسجل صح
     const commands = [
         // الإدارة (25)
         { name: 'ban', description: 'حظر عضو', options: [{ name: 'user', type: 6, required: true }, { name: 'reason', type: 3 }] },
