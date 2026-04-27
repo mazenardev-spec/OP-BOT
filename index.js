@@ -5,8 +5,8 @@ const {
     ChannelType, PermissionsBitField, ActivityType 
 } = require('discord.js');
 const fs = require('fs');
-const path = require('path');
-// --- 1. إدارة قاعدة البياناتب ---
+
+// --- 1. قاعدة البيانات ---
 const dbPath = './op_bot_db.json';
 function loadDB() {
     if (!fs.existsSync(dbPath)) fs.writeFileSync(dbPath, JSON.stringify({ bank: {}, guilds: {} }));
@@ -14,277 +14,210 @@ function loadDB() {
 }
 function saveDB(db) { fs.writeFileSync(dbPath, JSON.stringify(db, null, 4)); }
 function getUser(db, uid) {
-    if (!db.bank[uid]) db.bank[uid] = { w: 0, daily: 0 };
+    if (!db.bank[uid]) db.bank[uid] = { w: 0, daily: 0, xp: 0, lvl: 1 };
     return db.bank[uid];
 }
 function getGuild(db, gid) {
-    if (!db.guilds[gid]) db.guilds[gid] = { log: null, wel: null, arole: null, ev_ch: null, replies: {}, lvls: {} };
+    if (!db.guilds[gid]) db.guilds[gid] = { log: null, wel: null, arole: null, replies: {} };
     return db.guilds[gid];
 }
 
 const client = new Client({
-    intents: [Object.keys(GatewayIntentBits).map(a => GatewayIntentBits[a])],
+    intents: [3276799], // كل الصلاحيات
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-let evs = {}; 
-
-// --- 2. تسجيل الأوامر (Slash Commands) ---
+// --- 2. مصفوفة الـ 70 أمر (التسجيل) ---
 client.once('ready', async () => {
-    console.log(`✅ ${client.user.tag} Online!`);
+    console.log(`✅ OP BOT Online | User: ${client.user.tag}`);
     
     const commands = [
-        // الإدارة (25 أمر تقريباً)
+        // الإدارة (25)
         { name: 'ban', description: 'حظر عضو', options: [{ name: 'user', type: 6, required: true }, { name: 'reason', type: 3 }] },
         { name: 'kick', description: 'طرد عضو', options: [{ name: 'user', type: 6, required: true }, { name: 'reason', type: 3 }] },
         { name: 'timeout', description: 'إسكات عضو', options: [{ name: 'user', type: 6, required: true }, { name: 'minutes', type: 4, required: true }] },
+        { name: 'unban', description: 'فك حظر (ID)', options: [{ name: 'id', type: 3, required: true }] },
         { name: 'clear', description: 'مسح رسائل', options: [{ name: 'amount', type: 4, required: true }] },
         { name: 'lock', description: 'قفل القناة' },
         { name: 'unlock', description: 'فتح القناة' },
-        { name: 'nuke', description: 'تصفير القناة' },
         { name: 'hide', description: 'إخفاء القناة' },
         { name: 'unhide', description: 'إظهار القناة' },
+        { name: 'nuke', description: 'تطهير القناة (إعادة إنشائها)' },
         { name: 'slowmode', description: 'وضع البطيء', options: [{ name: 'seconds', type: 4, required: true }] },
-        { name: 'set-log', description: 'روم اللوق', options: [{ name: 'channel', type: 7, required: true }] },
-        { name: 'set-welcome', description: 'روم الترحيب', options: [{ name: 'channel', type: 7, required: true }] },
+        { name: 'set-log', description: 'تحديد روم السجلات', options: [{ name: 'channel', type: 7, required: true }] },
+        { name: 'set-welcome', description: 'تحديد روم الترحيب', options: [{ name: 'channel', type: 7, required: true }] },
         { name: 'set-autorole', description: 'رتبة تلقائية', options: [{ name: 'role', type: 8, required: true }] },
-        { name: 'set-autoevent', description: 'روم الفعاليات', options: [{ name: 'channel', type: 7, required: true }] },
-        { name: 'set-ticket', description: 'رسالة التيكت', options: [{ name: 'channel', type: 7, required: true }] },
-        { name: 'role-add', description: 'إضافة رتبة', options: [{ name: 'user', type: 6, required: true }, { name: 'role', type: 8, required: true }] },
-        { name: 'role-remove', description: 'سحب رتبة', options: [{ name: 'user', type: 6, required: true }, { name: 'role', type: 8, required: true }] },
-        { name: 'nick', description: 'تغيير لقب', options: [{ name: 'user', type: 6, required: true }, { name: 'name', type: 3, required: true }] },
+        { name: 'set-ticket', description: 'إرسال رسالة التيكت', options: [{ name: 'channel', type: 7, required: true }] },
         { name: 'warn', description: 'تحذير عضو', options: [{ name: 'user', type: 6, required: true }, { name: 'reason', type: 3 }] },
-        { name: 'move', description: 'نقل صوتي', options: [{ name: 'user', type: 6, required: true }, { name: 'channel', type: 7, required: true }] },
+        { name: 'role-add', description: 'إعطاء رتبة', options: [{ name: 'user', type: 6, required: true }, { name: 'role', type: 8, required: true }] },
+        { name: 'role-remove', description: 'سحب رتبة', options: [{ name: 'user', type: 6, required: true }, { name: 'role', type: 8, required: true }] },
+        { name: 'nick', description: 'تغيير لقب عضو', options: [{ name: 'user', type: 6, required: true }, { name: 'name', type: 3, required: true }] },
         { name: 'vmute', description: 'ميوت صوتي', options: [{ name: 'user', type: 6, required: true }] },
         { name: 'vunmute', description: 'فك ميوت صوتي', options: [{ name: 'user', type: 6, required: true }] },
-        { name: 'vkick', description: 'طرد من الصوت', options: [{ name: 'user', type: 6, required: true }] },
+        { name: 'vkick', description: 'طرد من الروم الصوتي', options: [{ name: 'user', type: 6, required: true }] },
+        { name: 'move', description: 'سحب عضو لرومك', options: [{ name: 'user', type: 6, required: true }] },
+        { name: 'slow-off', description: 'إيقاف الوضع البطيء' },
+        { name: 'all-unmute', description: 'فك الميوت عن الجميع' },
 
-        // الاقتصاد (20 أمر تقريباً)
+        // الاقتصاد (20)
         { name: 'work', description: 'العمل لكسب المال' },
         { name: 'daily', description: 'الراتب اليومي' },
         { name: 'credits', description: 'رصيدك الحالي', options: [{ name: 'user', type: 6 }] },
-        { name: 'top', description: 'قائمة الأغنياء' },
         { name: 'transfer', description: 'تحويل مبالغ', options: [{ name: 'user', type: 6, required: true }, { name: 'amount', type: 4, required: true }] },
-        { name: 'miner', description: 'التنقيب' },
-        { name: 'hunt', description: 'الصيد' },
-        { name: 'fish', description: 'صيد السمك' },
-        { name: 'beg', description: 'شحاتة' },
+        { name: 'top', description: 'قائمة الأغنياء' },
         { name: 'slots', description: 'لعبة السلوتس', options: [{ name: 'amount', type: 4, required: true }] },
         { name: 'coinflip', description: 'ملك أو كتابة', options: [{ name: 'amount', type: 4, required: true }] },
-        { name: 'profile-money', description: 'البروفايل المالي' },
+        { name: 'fish', description: 'صيد سمك' },
+        { name: 'hunt', description: 'رحلة صيد' },
+        { name: 'beg', description: 'شحاتة' },
+        { name: 'rob', description: 'سرقة عضو', options: [{ name: 'user', type: 6, required: true }] },
+        { name: 'give-money', description: 'إعطاء مال (للأدمن)', options: [{ name: 'user', type: 6, required: true }, { name: 'amount', type: 4, required: true }] },
+        { name: 'reset-money', description: 'تصفير بنك عضو', options: [{ name: 'user', type: 6, required: true }] },
+        { name: 'shop', description: 'متجر السيرفر' },
+        { name: 'buy', description: 'شراء رتبة من المتجر', options: [{ name: 'item', type: 3, required: true }] },
+        { name: 'profile', description: 'ملفك الشخصي المالي' },
+        { name: 'miner', description: 'التنقيب عن الذهب' },
+        { name: 'bet', description: 'رهان سريع', options: [{ name: 'amount', type: 4, required: true }] },
+        { name: 'lb-xp', description: 'ترتيب اللفل' },
+        { name: 'withdraw', description: 'سحب من البنك' },
 
-        // الترفيه والنظام (25 أمر تقريباً)
-        { name: 'iq', description: 'نسبة الذكاء' },
+        // الترفيه والعام (25)
+        { name: 'ping', description: 'سرعة البوت' },
+        { name: 'iq', description: 'نسبة ذكائك' },
         { name: 'love', description: 'نسبة الحب', options: [{ name: 'user', type: 6, required: true }] },
         { name: 'avatar', description: 'صورة الحساب', options: [{ name: 'user', type: 6 }] },
-        { name: 'ping', description: 'سرعة البوت' },
         { name: 'joke', description: 'نكتة' },
         { name: 'hack', description: 'اختراق وهمي', options: [{ name: 'user', type: 6, required: true }] },
         { name: 'kill', description: 'تصفية عضو', options: [{ name: 'user', type: 6, required: true }] },
         { name: 'slap', description: 'صفعة', options: [{ name: 'user', type: 6, required: true }] },
         { name: 'hug', description: 'حضن', options: [{ name: 'user', type: 6, required: true }] },
-        { name: 'dice', description: 'نرد' },
-        { name: 'user-info', description: 'معلومات حسابك' },
+        { name: 'punch', description: 'لكمة', options: [{ name: 'user', type: 6, required: true }] },
+        { name: 'dice', description: 'رمي النرد' },
+        { name: 'user-info', description: 'معلومات الحساب', options: [{ name: 'user', type: 6 }] },
+        { name: 'server-info', description: 'معلومات السيرفر' },
         { name: 'bot-stats', description: 'إحصائيات البوت' },
-        { name: 'show-level', description: 'عرض مستواك' },
-        { name: 'choose', description: 'اختيار عشوائي', options: [{ name: 'first', type: 3, required: true }, { name: 'second', type: 3, required: true }] },
-        { name: 'meme', description: 'ميمز' },
-        { name: 'game', description: 'اقتراح لعبة' },
-        { name: 'ship', description: 'توافق بين شخصين', options: [{ name: 'user1', type: 6, required: true }, { name: 'user2', type: 6, required: true }] },
-        { name: 'wanted', description: 'صورة مطلوب' },
-        { name: 'punch', description: 'لكمة', options: [{ name: 'user', type: 6, required: true }] }
+        { name: 'meme', description: 'ميمز عشوائي' },
+        { name: 'choose', description: 'اختيار عشوائي', options: [{ name: '1', type: 3, required: true }, { name: '2', type: 3, required: true }] },
+        { name: 'wanted', description: 'صورة مطلوب (تاغ)', options: [{ name: 'user', type: 6 }] },
+        { name: 'ship', description: 'توافق بين اثنين', options: [{ name: 'u1', type: 6, required: true }, { name: 'u2', type: 6, required: true }] },
+        { name: 'reverse', description: 'قلب النص', options: [{ name: 'text', type: 3, required: true }] },
+        { name: 'shorten', description: 'تقصير رابط', options: [{ name: 'link', type: 3, required: true }] },
+        { name: 'calculate', description: 'حاسبة', options: [{ name: 'op', type: 3, required: true }] },
+        { name: 'google', description: 'بحث جوجل', options: [{ name: 'q', type: 3, required: true }] },
+        { name: 'set-autoreply', description: 'إضافة رد تلقائي', options: [{ name: 'word', type: 3, required: true }, { name: 'reply', type: 3, required: true }] },
+        { name: 'del-autoreply', description: 'حذف رد تلقائي', options: [{ name: 'word', type: 3, required: true }] },
+        { name: 'help', description: 'قائمة الأوامر' }
     ];
 
     await client.application.commands.set(commands);
-    
-    // نظام الحالة
-    setInterval(() => client.user.setActivity(`OP BOT | ${client.guilds.cache.size} Servers`, { type: ActivityType.Watching }), 1800000);
 });
 
-// --- 3. معالجة الرسائل (لفل، ردود، فعاليات) ---
+// --- 3. نظام اللفل والترحيب والردود ---
 client.on('messageCreate', async msg => {
     if (msg.author.bot || !msg.guild) return;
     const db = loadDB();
+    const u = getUser(db, msg.author.id);
     const gd = getGuild(db, msg.guild.id);
 
     // لفل
-    if (!gd.lvls[msg.author.id]) gd.lvls[msg.author.id] = { xp: 0, lvl: 1 };
-    gd.lvls[msg.author.id].xp += 10;
-    if (gd.lvls[msg.author.id].xp >= gd.lvls[msg.author.id].lvl * 100) {
-        gd.lvls[msg.author.id].lvl++;
-        gd.lvls[msg.author.id].xp = 0;
-        msg.channel.send(`🆙 نايس ${msg.author}! صرت لفل **${gd.lvls[msg.author.id].lvl}**`);
+    u.xp += 10;
+    if (u.xp >= u.lvl * 150) {
+        u.lvl++; u.xp = 0;
+        msg.reply(`🎉 مبروك! لفل أب إلى **${u.lvl}**`);
     }
 
     // رد تلقائي
     if (gd.replies[msg.content]) msg.channel.send(gd.replies[msg.content]);
-
-    // حل فعالية
-    if (evs[msg.guild.id] && msg.content === evs[msg.guild.id]) {
-        delete evs[msg.guild.id];
-        getUser(db, msg.author.id).w += 500;
-        msg.reply("🎉 إجابة صحيحة! حصلت على 500 كريدت.");
-    }
     saveDB(db);
 });
 
-// --- 4. نظام الترحيب بالصور ---
 client.on('guildMemberAdd', async member => {
     const db = loadDB();
     const gd = getGuild(db, member.guild.id);
-
     if (gd.wel) {
-        const channel = member.guild.channels.cache.get(gd.wel);
-        if (channel) {
-            channel.send(`منور السيرفر يا بطل ${member}! 🚀`);
-        }
+        const ch = member.guild.channels.cache.get(gd.wel);
+        if (ch) ch.send({ embeds: [new EmbedBuilder().setTitle('عضو جديد!').setDescription(`نورتنا ${member}`).setColor('#4ade80')] });
     }
-});
-    // رتبة تلقائية
-    if (gd.arole) {
-        const role = member.guild.roles.cache.get(gd.arole);
-        if (role) member.roles.add(role).catch(() => {});
-    }
-
-    // ترحيب
-    if (gd.wel) {
-        const channel = member.guild.channels.cache.get(gd.wel);
-        if (channel) {
-            const canvas = createCanvas(800, 450);
-            const ctx = canvas.getContext('2d');
-
-            // خلفية داكنة (Modern Dark)
-            ctx.fillStyle = '#0c0c0c';
-            ctx.fillRect(0, 0, 800, 450);
-
-            // دائرة الصورة
-            ctx.beginPath();
-            ctx.arc(400, 150, 100, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.clip();
-
-            try {
-                const avatar = await loadImage(member.user.displayAvatarURL({ extension: 'png' }));
-                ctx.drawImage(avatar, 300, 50, 200, 200);
-            } catch (e) {}
-
-            // نصوص
-            ctx.fillStyle = '#4ade80';
-            ctx.font = 'bold 40px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText("منور السيرفر يا بطل", 400, 300);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(member.user.username, 400, 360);
-
-            channel.send({ content: `منور يا ${member}`, files: [{ attachment: canvas.toBuffer(), name: 'welcome.png' }] });
-        }
-    }
+    if (gd.arole) member.roles.add(gd.arole).catch(() => {});
 });
 
-// --- 5. تنفيذ أوامر Slash Commands ---
+// --- 4. تنفيذ الأوامر ---
 client.on('interactionCreate', async i => {
     if (!i.isChatInputCommand()) return;
     const db = loadDB();
-    const { commandName, options, guild, user } = i;
+    const { commandName, options, user, guild, channel } = i;
 
-    // أوامر الإدارة
-    if (commandName === 'ban') {
-        if (!i.member.permissions.has(PermissionsBitField.Flags.BanMembers)) return i.reply('❌ لا تملك صلاحية');
-        const target = options.getMember('user');
-        await target.ban();
-        i.reply('✅ تم الحظر');
-    }
-    
+    // الإدارة
     if (commandName === 'clear') {
-        const amount = options.getInteger('amount');
-        await i.channel.purge(amount);
-        i.reply({ content: `🧹 تم مسح ${amount} رسالة`, ephemeral: true });
+        const amt = options.getInteger('amount');
+        await channel.bulkDelete(amt > 100 ? 100 : amt);
+        return i.reply({ content: `🧹 تم مسح ${amt} رسالة`, ephemeral: true });
     }
-
     if (commandName === 'lock') {
-        await i.channel.permissionOverwrites.edit(guild.id, { SendMessages: false });
-        i.reply('🔒 تم قفل القناة');
+        await channel.permissionOverwrites.edit(guild.id, { SendMessages: false });
+        return i.reply('🔒 تم قفل القناة');
+    }
+    if (commandName === 'set-welcome') {
+        getGuild(db, guild.id).wel = options.getChannel('channel').id;
+        saveDB(db);
+        return i.reply('✅ تم ضبط الترحيب');
     }
 
-    // أوامر الاقتصاد
+    // الاقتصاد
     if (commandName === 'work') {
-        const r = Math.floor(Math.random() * 5000) + 500;
+        const r = Math.floor(Math.random() * 800) + 200;
         getUser(db, user.id).w += r;
         saveDB(db);
-        i.reply(`💼 عملت بجد وكسبت \`${r}\` كريدت!`);
+        return i.reply(`💼 عملت وكسبت **${r}**`);
     }
-
-    if (commandName === 'credits') {
-        const target = options.getUser('user') || user;
-        i.reply(`💳 رصيد ${target.username}: \`${getUser(db, target.id).w}\``);
+    if (commandName === 'daily') {
+        const u = getUser(db, user.id);
+        if (Date.now() - u.daily < 86400000) return i.reply('⏳ عد بعد 24 ساعة');
+        u.w += 2000; u.daily = Date.now();
+        saveDB(db);
+        return i.reply('💰 استلمت 2000 كريدت');
     }
-
     if (commandName === 'transfer') {
         const target = options.getUser('user');
-        const amount = options.getInteger('amount');
+        const amt = options.getInteger('amount');
         const u = getUser(db, user.id);
-        if (u.w < amount) return i.reply('❌ رصيدك لا يكفي');
-        u.w -= amount;
-        getUser(db, target.id).w += amount;
+        if (u.w < amt) return i.reply('❌ رصيدك ناقص');
+        u.w -= amt; getUser(db, target.id).w += amt;
         saveDB(db);
-        i.reply(`✅ تم تحويل \`${amount}\` إلى ${target}`);
+        return i.reply(`✅ تم تحويل ${amt} إلى ${target}`);
     }
 
-    // أوامر الترفيه
-    if (commandName === 'ping') i.reply(`🏓 البينج: \`${client.ws.ping}ms\``);
-    
-    if (commandName === 'iq') i.reply(`🧠 نسبة ذكائك: \`${Math.floor(Math.random()*100)}%\``);
+    // ترفيه
+    if (commandName === 'iq') return i.reply(`🧠 ذكائك: \`${Math.floor(Math.random()*100)}%\``);
+    if (commandName === 'hack') return i.reply(`💻 جاري اختراق ${options.getUser('user').username}... تم بنجاح! ☠️`);
+    if (commandName === 'ping') return i.reply(`🏓 Pong! \`${client.ws.ping}ms\``);
 
-    if (commandName === 'avatar') {
-        const target = options.getUser('user') || user;
-        i.reply(target.displayAvatarURL({ dynamic: true, size: 1024 }));
-    }
-
-    // إعدادات البوت
-    if (commandName === 'set-log') {
-        getGuild(db, guild.id).log = options.getChannel('channel').id;
-        saveDB(db);
-        i.reply('✅ تم ضبط اللوق');
-    }
-
+    // تيكت
     if (commandName === 'set-ticket') {
-        const ch = options.getChannel('channel');
-        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('open_t').setLabel('فتح تذكرة 📩').setStyle(ButtonStyle.Success));
-        await ch.send({ content: '📩 قسم الدعم الفني: اضغط لفتح تذكرة', components: [row] });
-        i.reply('✅ تم إرسال رسالة التيكت');
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('op_t').setLabel('تذكرة').setStyle(ButtonStyle.Primary));
+        await options.getChannel('channel').send({ content: 'افتح تذكرة من هنا', components: [row] });
+        return i.reply('✅ تم');
     }
 });
 
-// --- 6. نظام التيكت (أزرار) ---
+// --- 5. التعامل مع التيكت ---
 client.on('interactionCreate', async i => {
-    if (i.isButton() && i.customId === 'open_t') {
-        const modal = new ModalBuilder().setCustomId('t_modal').setTitle('فتح تذكرة دعم');
-        const input = new TextInputBuilder().setCustomId('reason').setLabel('سبب التذكرة').setStyle(TextInputStyle.Paragraph).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(input));
-        await i.showModal(modal);
-    }
-
-    if (i.isModalSubmit() && i.customId === 't_modal') {
-        const reason = i.fields.getTextInputValue('reason');
-        const ch = await i.guild.channels.create({
+    if (i.isButton() && i.customId === 'op_t') {
+        const tc = await i.guild.channels.create({
             name: `ticket-${i.user.username}`,
             type: ChannelType.GuildText,
             permissionOverwrites: [
-                { id: i.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: i.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+                { id: i.guild.id, deny: [8192n] },
+                { id: i.user.id, allow: [8192n, 2048n] }
             ]
         });
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('claim_t').setLabel('استلام ✋').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('close_t').setLabel('إغلاق 🔒').setStyle(ButtonStyle.Danger)
-        );
-        await ch.send({ content: `تذكرة جديدة من ${i.user}\nالسبب: ${reason}`, components: [row] });
-        i.reply({ content: `✅ تم فتح تذكرتك: ${ch}`, ephemeral: true });
+        i.reply({ content: `فتحنا لك روم: ${tc}`, ephemeral: true });
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('cl_t').setLabel('إغلاق').setStyle(ButtonStyle.Danger));
+        tc.send({ content: `نورت يا ${i.user}`, components: [row] });
     }
-
-    if (i.isButton() && i.customId === 'close_t') {
-        await i.reply('🔒 سيتم حذف القناة خلال 3 ثوانٍ...');
-        setTimeout(() => i.channel.delete(), 3000);
+    if (i.isButton() && i.customId === 'cl_t') {
+        i.reply('🔒 سيتم الحذف...');
+        setTimeout(() => i.channel.delete(), 2000);
     }
 });
 
