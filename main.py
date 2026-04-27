@@ -149,7 +149,7 @@ async def on_member_join(self, m):
                     print(f"خطأ في الصورة: {e}")
                     await ch.send(f"🎉 أهلاً بك {m.mention} في {m.guild.name}")
                     
-    async def on_message(self, msg):
+async def on_message(self, msg):
         if msg.author.bot or not msg.guild: return
         db = load_db(); gd = get_guild(db, msg.guild.id)
         # رد تلقائي
