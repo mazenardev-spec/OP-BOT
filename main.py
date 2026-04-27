@@ -3,6 +3,8 @@ from discord import app_commands
 from discord.ui import Button, View, Modal, TextInput
 import random, asyncio, json, os
 from datetime import datetime, timedelta
+from easy_pil import Editor, load_image_async, Font, Canvas
+import io
 
 # --- 1. إدارة البيانات (Database) ---
 def load_db():
@@ -110,15 +112,55 @@ class OPBot(discord.Client):
         if b.name != a.name:
             await self.send_log(a.guild, discord.Embed(title="📝 تغيير اسم قناة", description=f"**من:** {b.name}\n**إلى:** {a.name}", color=0x0000ff))
 
-    async def on_member_join(self, m):
-        db = load_db(); gd = get_guild(db, m.guild.id)
+   async def on_member_join(self, m):
+        db = load_db()
+        gd = get_guild(db, m.guild.id)
+        
+        # 1. إعطاء الرتبة التلقائية (نفس نظامك)
         if gd.get("arole"):
             role = m.guild.get_role(int(gd["arole"]))
-            if role: await m.add_roles(role)
+            if role: 
+                try: await m.add_roles(role)
+                except: print(f"⚠️ فشلت في إعطاء الرتبة لـ {m.name}")
+
+        # 2. نظام الترحيب بالصورة (العربي)
         if gd.get("wel"):
             ch = self.get_channel(int(gd["wel"]))
-            if ch: await ch.send(f"🎉 أهلاً بك {m.mention} في سيرفرنا!")
+            if ch:
+                try:
+                    # إنشاء خلفية سوداء مقاس 800x450
+                    background = Editor(Canvas((800, 450), color="#0c0c0c")) 
+                    
+                    # سحب صورة بروفايل الشخص اللي دخل الآن وجعلها دائرية
+                    # m.display_avatar.url بتجيب صورة أي شخص يدخل تلقائياً
+                    avatar_image = await load_image_async(str(m.display_avatar.url))
+                    profile = Editor(avatar_image).resize((200, 200)).circle_image()
+                    
+                    # وضع البروفايل في وسط الصورة (على بعد 300px من اليسار و 50px من الأعلى)
+                    background.paste(profile, (300, 50))
+                    
+                    # إضافة النصوص باللغة العربية (بألوان OP BOT)
+                    # النص الأول: ترحيب عام (لون أخضر)
+                    background.text((400, 280), "منور السيرفر يا بطل", color="#4ade80", align="center")
+                    
+                    # النص الثاني: اسم العضو (لون أبيض)
+                    background.text((400, 340), f"{m.name}", color="white", align="center")
+                    
+                    # النص الثالث: اسم السيرفر (لون رمادي)
+                    # m.guild.name بتجيب اسم السيرفر اللي دخل فيه تلقائياً
+                    background.text((400, 390), f"في {m.guild.name}", color="#71717a", align="center")
 
+                    # تحويل الرسمة لملف ديسكورد لإرساله
+                    file = discord.File(fp=background.image_bytes, filename="welcome.png")
+                    
+                    # إرسال الصورة مع رسالة منشن
+                    await ch.send(f"✨ حياك الله {m.mention} جيت المكان الصح!", file=file)
+                    
+                except Exception as e:
+                    # لو حصل أي خطأ في الرسم (زي نت السيرفر ضعيف)، يرحب كتابي كحل احتياطي
+                    print(f"❌ خطأ في رسم الصورة: {e}")
+                    await ch.send(f"🎉 أهلاً بك {m.mention} في سيرفرنا!")
+                    
     async def on_message(self, msg):
         if msg.author.bot or not msg.guild: return
         db = load_db(); gd = get_guild(db, msg.guild.id)
