@@ -6,8 +6,6 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { createCanvas, loadImage } = require('canvas');
-
 // --- 1. إدارة قاعدة البيانات ---
 const dbPath = './op_bot_db.json';
 function loadDB() {
@@ -135,6 +133,13 @@ client.on('guildMemberAdd', async member => {
     const db = loadDB();
     const gd = getGuild(db, member.guild.id);
 
+    if (gd.wel) {
+        const channel = member.guild.channels.cache.get(gd.wel);
+        if (channel) {
+            channel.send(`منور السيرفر يا بطل ${member}! 🚀`);
+        }
+    }
+});
     // رتبة تلقائية
     if (gd.arole) {
         const role = member.guild.roles.cache.get(gd.arole);
