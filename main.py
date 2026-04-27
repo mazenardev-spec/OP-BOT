@@ -116,50 +116,39 @@ class OPBot(discord.Client):
         db = load_db()
         gd = get_guild(db, m.guild.id)
         
-        # 1. إعطاء الرتبة التلقائية (نفس نظامك)
+        # 1. نظام الرتبة التلقائية
         if gd.get("arole"):
             role = m.guild.get_role(int(gd["arole"]))
             if role: 
                 try: await m.add_roles(role)
-                except: print(f"⚠️ فشلت في إعطاء الرتبة لـ {m.name}")
+                except: print(f"Failed to add role in {m.guild.name}")
 
-        # 2. نظام الترحيب بالصورة (العربي)
+        # 2. نظام الترحيب بالصور
         if gd.get("wel"):
             ch = self.get_channel(int(gd["wel"]))
             if ch:
                 try:
-                    # إنشاء خلفية سوداء مقاس 800x450
+                    # إعداد الخلفية السوداء
                     background = Editor(Canvas((800, 450), color="#0c0c0c")) 
                     
-                    # سحب صورة بروفايل الشخص اللي دخل الآن وجعلها دائرية
-                    # m.display_avatar.url بتجيب صورة أي شخص يدخل تلقائياً
-                    avatar_image = await load_image_async(str(m.display_avatar.url))
-                    profile = Editor(avatar_image).resize((200, 200)).circle_image()
+                    # سحب صورة الشخص اللي دخل وقصها دائرة
+                    avatar_img = await load_image_async(str(m.display_avatar.url))
+                    profile = Editor(avatar_img).resize((200, 200)).circle_image()
                     
-                    # وضع البروفايل في وسط الصورة (على بعد 300px من اليسار و 50px من الأعلى)
+                    # وضع الصورة في التصميم
                     background.paste(profile, (300, 50))
                     
-                    # إضافة النصوص باللغة العربية (بألوان OP BOT)
-                    # النص الأول: ترحيب عام (لون أخضر)
+                    # النصوص بالألوان واللغة اللي طلبتها
                     background.text((400, 280), "منور السيرفر يا بطل", color="#4ade80", align="center")
-                    
-                    # النص الثاني: اسم العضو (لون أبيض)
                     background.text((400, 340), f"{m.name}", color="white", align="center")
-                    
-                    # النص الثالث: اسم السيرفر (لون رمادي)
-                    # m.guild.name بتجيب اسم السيرفر اللي دخل فيه تلقائياً
-                    background.text((400, 390), f"في {m.guild.name}", color="#71717a", align="center")
+                    background.text((400, 390), f"في سيرفر: {m.guild.name}", color="#71717a", align="center")
 
-                    # تحويل الرسمة لملف ديسكورد لإرساله
+                    # إرسال الصورة
                     file = discord.File(fp=background.image_bytes, filename="welcome.png")
-                    
-                    # إرسال الصورة مع رسالة منشن
-                    await ch.send(f"✨ حياك الله {m.mention} جيت المكان الصح!", file=file)
-                    
+                    await ch.send(f"منوووووووور جيت المكان الصح {m.mention}", file=file)
                 except Exception as e:
-                    # لو حصل أي خطأ في الرسم (زي نت السيرفر ضعيف)، يرحب كتابي كحل احتياطي
-                    print(f"❌ خطأ في رسم الصورة: {e}")
-                    await ch.send(f"🎉 أهلاً بك {m.mention} في سيرفرنا!")
+                    print(f"Error: {e}")
+                    await ch.send(f"🎉 أهلاً بك {m.mention} في {m.guild.name}")
                     
     async def on_message(self, msg):
         if msg.author.bot or not msg.guild: return
