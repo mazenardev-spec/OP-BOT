@@ -636,28 +636,28 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // --- أوامر الترفيه ---
-        if (commandName === 'ping') {
-            return interaction.reply(`🏓 البونغ! ${client.ws.ping}ms`);
-        }
+if (commandName === 'ping') {
+    return interaction.reply(`🏓 البونغ! ${client.ws.ping}ms`);
+}
 
-        if (commandName === 'server') {
-            const owner = await guild.fetchOwner();
-            const embed = new EmbedBuilder()
-                .setColor('#7289da')
-                .setTitle(`🏰 ${guild.name}`)
-                .setThumbnail(guild.iconURL())
-                .addFields(
-                    { name: '👑 المالك', value:`<@${owner.id}>`, inline：true },
-                    { name：'👥 الأعضاء'，value：`${guild.memberCount}`，inline：true }，
-                    { name：'📅 تاريخ الإنشاء'，value：`<t：${Math.floor(guild.createdTimestamp / 1000)}：R>`，inline：true }，
-                    { name：'📊 الرومات'，value：`${guild.channels.cache.size}`，inline：true }，
-                    { name：'🎭 الرتب'，value：`${guild.roles.cache.size}`，inline：true }，
-                    { name：'🚀 البوست'，value：`${guild.premiumTier}`，inline：true }
-                )
-                .setTimestamp();
+if (commandName === 'server') {
+    const owner = await guild.fetchOwner();
+    const embed = new EmbedBuilder()
+        .setColor('#7289da')
+        .setTitle(`🏰 ${guild.name}`)
+        .setThumbnail(guild.iconURL())
+        .addFields(
+            { name: '👑 المالك', value: `<@${owner.id}>`, inline: true },
+            { name: '👥 الأعضاء', value: `${guild.memberCount}`, inline: true },
+            { name: '📅 تاريخ الإنشاء', value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:R>`, inline: true },
+            { name: '📊 الرومات', value: `${guild.channels.cache.size}`, inline: true },
+            { name: '🎭 الرتب', value: `${guild.roles.cache.size}`, inline: true },
+            { name: '🚀 البوست', value: `${guild.premiumTier}`, inline: true }
+        )
+        .setTimestamp();
 
-            return interaction.reply({ embeds：[embed] });
-        }
+    return interaction.reply({ embeds: [embed] });
+}
 
         if（commandName ==='avatar'）{
             const targetUser = options.getUser（'user'）|| user;
