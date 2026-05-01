@@ -119,7 +119,7 @@ client.on('messageCreate', async (message) => {
             let userLevelData = await db.get(`levels_${userId}`) || { xp: 0, level: 1 };
 
             // زيادة XP عشوائية (5-15)
-            userLevelData.xp += Math.floor(Math.random() * 10) + &;
+            userLevelData.xp += Math.floor(Math.random() * 10) + 10;
 
             // حساب إذا وصل للفل جديد (100 XP لكل فل)
             const requiredXP = userLevelData.level * 100;
