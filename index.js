@@ -3,7 +3,9 @@ const {
     PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle,
     ApplicationCommandOptionType, REST, Routes, Collection
 } = require('discord.js');
-const QuickDB = require('quick.db');
+
+// التعديل هنا فقط: أضفنا الأقواس { } حول QuickDB لتجنب الخطأ
+const { QuickDB } = require('quick.db'); 
 const db = new QuickDB();
 
 const client = new Client({
@@ -14,7 +16,6 @@ const client = new Client({
     ],
     partials: [Partials.Channel, Partials.Message, Partials.User, Partials.Reaction]
 });
-
 // --- مصفوفة الأوامر الكاملة (75 أمر) ---
 const commands = [
     // [1-10] الإعدادات (SETTINGS)
