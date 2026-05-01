@@ -491,7 +491,7 @@ client.on('interactionCreate', async (interaction) => {
             
             if (targetUser.id === user.id) return interaction.reply({ content: '❌ لا يمكنك سرقة نفسك!', ephemeral: true });
             
-            let targetData = await db.get(`economy_${targetUser.id}`) || { wallet: 0, bank: ANOTHER_INCOMPLETE_COMMAND };
+            let targetData = await db.get(`economy_${targetUser.id}`) || { wallet: 0, bank: 0 };
             
             if (targetData.wallet < 100) return interaction.reply({ content: `❌ ${targetUser.username} ليس لديه أموال كافية للسرقة!`, ephemeral: true });
             
@@ -659,19 +659,19 @@ if (commandName === 'server') {
     return interaction.reply({ embeds: [embed] });
 }
 
-        if（commandName ==='avatar'）{
-            const targetUser = options.getUser（'user'）|| user;
-            const embed = new EmbedBuilder（）
-                .setColor（'#00ff00'）
-                .setTitle（`👤 ${targetUser.username}`）
-                .setImage（targetUser.displayAvatarURL（{ size：512 }））
-                .setTimestamp（）;
+        if (commandName === 'avatar') {
+            const targetUser = options.getUser('user') || user;
+            const embed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle(`👤 ${targetUser.username}`)
+                .setImage(targetUser.displayAvatarURL({ size: 512 }))
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
-        if（commandName ==='hack'）{
-            const targetUser = options.getUser（'user'）|| user;
+        if (commandName === 'hack') {
+            const targetUser = options.getUser('user') || user;
             const steps = [
                 'جاري اختراق البريد الإلكتروني...',
                 'جاري كسر كلمة المرور...',
@@ -680,32 +680,32 @@ if (commandName === 'server') {
                 '✅ الاختراق اكتمل بنجاح！'
             ];
 
-            await interaction.reply（`💻 جاري اختراق ${targetUser.username}...`）;
+            await interaction.reply(`💻 جاري اختراق ${targetUser.username}...`);
 
-            for（let i = 0； i < steps.length； i++）{
-                setTimeout（async（）=> {
-                    if（i === steps.length - 1）{
-                        const embed = new EmbedBuilder（）
-                            .setColor（'#00ff00'）
-                            .setTitle（'✅ الاختراق اكتمل！'）
-                            .setDescription（`تم اختراق ${targetUser.username} بنجاح！`）
-                            .addFields（
-                                { name：'البريد الإلكتروني'，value：`${targetUser.username.toLowerCase（）}@hacked.com` }，
-                                { name：'كلمة المرور'，value：'**********' }，
-                                { name：'آخر موقع'，value：'السعودية' }
-                            ）
-                            .setTimestamp（）;
+            for (let i = 0; i < steps.length; i++) {
+                setTimeout(async () => {
+                    if (i === steps.length - 1) {
+                        const embed = new EmbedBuilder()
+                            .setColor('#00ff00')
+                            .setTitle('✅ الاختراق اكتمل！')
+                            .setDescription(`تم اختراق ${targetUser.username} بنجاح！`)
+                            .addFields(
+                                { name: 'البريد الإلكتروني', value: `${targetUser.username.toLowerCase()}@hacked.com` },
+                                { name: 'كلمة المرور', value: '**********' },
+                                { name: 'آخر موقع', value: 'السعودية' }
+                            )
+                            .setTimestamp();
 
-                        await interaction.editReply（{ content：''，embeds：[embed] }）;
+                        await interaction.editReply({ content: '', embeds: [embed] });
                     } else {
-                        await interaction.editReply（`💻 ${steps[i]}`）;
+                        await interaction.editReply(`💻 ${steps[i]}`);
                     }
-                }， i * 1500）;
+                }, i * 1500);
             }
         }
 
-        if（commandName ==='kill'）{
-            const targetUser = options.getUser（'user'）;
+        if (commandName === 'kill') {
+            const targetUser = options.getUser('user');
             const methods = [
                 `قام ${user.username} بإطلاق النار على ${targetUser.username}！ 💀`,
                 `قام ${user.username} بدفع ${targetUser.username} من فوق الجبل！ 🏔️`,
@@ -714,35 +714,35 @@ if (commandName === 'server') {
                 `قام ${user.username} بتجميد ${targetUser.username} في الثلاجة！ ❄️`
             ];
 
-            const randomMethod = methods[Math.floor（Math.random（）* methods.length）];
-            return interaction.reply（`🔪 ${randomMethod}`）;
+            const randomMethod = methods[Math.floor(Math.random() * methods.length)];
+            return interaction.reply(`🔪 ${randomMethod}`);
         }
 
-        if（commandName ==='joke'）{
+        if (commandName === 'joke') {
             const jokes = [
-                'لماذا لا يستخدم العلماء الآلة الحاسبة？ لأنهم يخشون من الأعداد المركبة！',
-                'ماذا قال المبرمج عندما نام？ "جافا"！',
-                'لماذا خسرت البطريق المعركة？ لأنها كانت تلبس بدلة توكسيدو！',
-                'ما هو الحيوان الذي لا يلد ولا يبيض？ الحيوان المستحيل！',
-                'لماذا ذهب المبرمج إلى الطبيب？ لأنه كان لديه مشكلة في الـ "byte"！'
+                'لماذا لا يستخدم العلماء الآلة الحاسبة؟ لأنهم يخشون من الأعداد المركبة！',
+                'ماذا قال المبرمج عندما نام؟ "جافا"！',
+                'لماذا خسرت البطريق المعركة؟ لأنها كانت تلبس بدلة توكسيدو！',
+                'ما هو الحيوان الذي لا يلد ولا يبيض؟ الحيوان المستحيل！',
+                'لماذا ذهب المبرمج إلى الطبيب؟ لأنه كان لديه مشكلة في الـ "byte"！'
             ];
 
-            return interaction.reply（`😂 ${jokes[Math.floor（Math.random（）* jokes.length）]}`）;
+            return interaction.reply(`😂 ${jokes[Math.floor(Math.random() * jokes.length)]}`);
         }
 
-        if（commandName ==='iq'）{
-            const iq = Math.floor（Math.random（）* 200）+ 1;
-            let level ='';
+        if (commandName === 'iq') {
+            const iq = Math.floor(Math.random() * 200) + 1;
+            let level = '';
 
-            if（iq < 70）level ='🧠 ذكاء منخفض';
-            else if（iq < 100）level ='🧠 ذكاء متوسط';
-            else if（iq < 130）level ='🧠 ذكاء مرتفع';
-            else level ='🧠 عبقري！';
+            if (iq < 70) level = '🧠 ذكاء منخفض';
+            else if (iq < 100) level = '🧠 ذكاء متوسط';
+            else if (iq < 130) level = '🧠 ذكاء مرتفع';
+            else level = '🧠 عبقري！';
 
-            return interaction.reply（`🧠 مستوى ذكاء ${user.username}: ${iq} IQ - ${level}`）;
+            return interaction.reply(`🧠 مستوى ذكاء ${user.username}: ${iq} IQ - ${level}`);
         }
 
-        if（commandName ==='meme'）{
+        if (commandName === 'meme') {
             const memes = [
                 'https://i.imgur.com/example1.jpg',
                 'https://i.imgur.com/example2.jpg',
@@ -750,17 +750,17 @@ if (commandName === 'server') {
                 'https://i.imgur.com/example4.jpg'
             ];
 
-            const embed = new EmbedBuilder（）
-                .setColor（'#ff00ff'）
-                .setTitle（'🐸 ميمز مضحك'）
-                .setImage（memes[Math.floor（Math.random（）* memes.length）]）
-                .setTimestamp（）;
+            const embed = new EmbedBuilder()
+                .setColor('#ff00ff')
+                .setTitle('🐸 ميمز مضحك')
+                .setImage(memes[Math.floor(Math.random() * memes.length)])
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
-        if（commandName ==='slap'）{
-            const targetUser = options.getUser（'user'）;
+        if (commandName === 'slap') {
+            const targetUser = options.getUser('user');
             const methods = [
                 `✋ ${user.username} صفع ${targetUser.username} بقوة！`,
                 `✋ ${user.username} أعطى ${targetUser.username} صفعة قوية！`,
@@ -768,34 +768,34 @@ if (commandName === 'server') {
                 `✋ ${user.username} رمى ${targetUser.username} بحذاء！`
             ];
 
-            return interaction.reply（methods[Math.floor（Math.random（）* methods.length）]）;
+            return interaction.reply(methods[Math.floor(Math.random() * methods.length)]);
         }
 
-        if（commandName ==='hug'）{
-            const targetUser = options.getUser（'user'）;
+        if (commandName === 'hug') {
+            const targetUser = options.getUser('user');
             const methods = [
                 `🫂 ${user.username} عانق ${targetUser.username} بحرارة！`,
                 `🫂 ${user.username} ضم ${targetUser.username} إلى صدره！`,
                 `🫂 ${user.username} أعطى ${targetUser.username} عناقاً دافئاً！`
             ];
 
-            return interaction.reply（methods[Math.floor（Math.random（）* methods.length）]）;
+            return interaction.reply(methods[Math.floor(Math.random() * methods.length)]);
         }
 
-        if（commandName ==='roll'）{
-            const dice1 = Math.floor（Math.random（）* 6）+ 1;
-            const dice2 = Math.floor（Math.random（）* 6）+ 1;
+        if (commandName === 'roll') {
+            const dice1 = Math.floor(Math.random() * 6) + 1;
+            const dice2 = Math.floor(Math.random() * 6) + 1;
             
-            return interaction.reply（`🎲 ${user.username} رمى النرد：${dice1} و ${dice2} - المجموع：${dice1 + dice2}`）;
+            return interaction.reply(`🎲 ${user.username} رمى النرد：${dice1} و ${dice2} - المجموع：${dice1 + dice2}`);
         }
 
-        if（commandName ==='flip'）{
-            const result = Math.random（）> 0.5？'👑 ملك':'🪙 كتابة';
-            return interaction.reply（`🪙 ${user.username} رمى العملة：${result}`）;
+        if (commandName === 'flip') {
+            const result = Math.random() > 0.5 ? '👑 ملك' : '🪙 كتابة';
+            return interaction.reply(`🪙 ${user.username} رمى العملة：${result}`);
         }
 
-        if（commandName ==='8ball'）{
-            const question = options.getString（'question'）;
+        if (commandName === '8ball') {
+            const question = options.getString('question');
             const answers = [
                 'نعم بالتأكيد！ ✅',
                 'لا أبداً！ ❌',
@@ -809,272 +809,272 @@ if (commandName === 'server') {
                 'نعم ولكن كن حذراً ⚠️'
             ];
 
-            const answer = answers[Math.floor（Math.random（）* answers.length）];
-            return interaction.reply（`🔮 السؤال：${question}\\nالإجابة：${answer}`）;
+            const answer = answers[Math.floor(Math.random() * answers.length)];
+            return interaction.reply(`🔮 السؤال：${question}\nالإجابة：${answer}`);
         }
 
-        if（commandName ==='uptime'）{
+        if (commandName === 'uptime') {
             const uptime = client.uptime;
-            const days = Math.floor（uptime / 86400000）;
-            const hours = Math.floor（（uptime % 86400000）/ 3600000）;
-            const minutes = Math.floor（（uptime % 3600000）/ 60000）;
-            const seconds = Math.floor（（uptime % 60000）/ 1000）;
+            const days = Math.floor(uptime / 86400000);
+            const hours = Math.floor((uptime % 86400000) / 3600000);
+            const minutes = Math.floor((uptime % 3600000) / 60000);
+            const seconds = Math.floor((uptime % 60000) / 1000);
 
-            return interaction.reply（`⏰ مدة التشغيل：${days} يوم، ${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`）;
+            return interaction.reply(`⏰ مدة التشغيل：${days} يوم، ${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`);
         }
 
         // --- الأوامر الجديدة ---
-        if（commandName ==='status'）{
+        if (commandName === 'status') {
             // حساب عدد المستخدمين في قاعدة البيانات
-            const allData = await db.all（）;
+            const allData = await db.all();
             let economyCount = 0;
             let levelsCount = 0;
             
-            for（const key in allData）{
-                if（key.includes（'economy_'））economyCount++;
-                if（key.includes（'levels_'））levelsCount++;
+            for (const key in allData) {
+                if (key.includes('economy_')) economyCount++;
+                if (key.includes('levels_')) levelsCount++;
             }
             
-            const embed = new EmbedBuilder（）
-                .setColor（'#00ff00'）
-                .setTitle（'📊 حالة البوت والإحصائيات'）
-                .setDescription（'OP BOT يعمل بشكل طبيعي'）
-                .addFields（
-                    { name：'⏰ مدة التشغيل'，value：`${Math.floor（client.uptime / 3600000）} ساعة`，inline：true }，
-                    { name：'🌐 عدد السيرفرات'，value：`${client.guilds.cache.size}`，inline：true }，
-                    { name：'👥 عدد الأعضاء الإجمالي'，value：`${client.guilds.cache.reduce（（acc， g）=> acc + g.memberCount， 0）}`，inline：true }，
-                    { name：'📊 عدد الأوامر المسجلة'，value：`${commands.length} أمر`，inline：true }，
-                    { name：'💾 قاعدة البيانات'，value：`${economyCount} حساب اقتصادي`，inline：true }，
-                    { name：'📈 مستخدمين اللفل'，value：`${levelsCount} مستخدم`，inline：true }
-                ）
-                .setThumbnail（client.user.displayAvatarURL（））
-                .setTimestamp（）;
+            const embed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle('📊 حالة البوت والإحصائيات')
+                .setDescription('OP BOT يعمل بشكل طبيعي')
+                .addFields(
+                    { name: '⏰ مدة التشغيل', value: `${Math.floor(client.uptime / 3600000)} ساعة`, inline: true },
+                    { name: '🌐 عدد السيرفرات', value: `${client.guilds.cache.size}`, inline: true },
+                    { name: '👥 عدد الأعضاء الإجمالي', value: `${client.guilds.cache.reduce((acc, g) => acc + g.memberCount, 0)}`, inline: true },
+                    { name: '📊 عدد الأوامر المسجلة', value: `${commands.length} أمر`, inline: true },
+                    { name: '💾 قاعدة البيانات', value: `${economyCount} حساب اقتصادي`, inline: true },
+                    { name: '📈 مستخدمين اللفل', value: `${levelsCount} مستخدم`, inline: true }
+                )
+                .setThumbnail(client.user.displayAvatarURL())
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
-        if（commandName ==='servers'）{
-            const guildsList = client.guilds.cache.map（g => `**${g.name}** - ${g.memberCount} عضو`）;
+        if (commandName === 'servers') {
+            const guildsList = client.guilds.cache.map(g => `**${g.name}** - ${g.memberCount} عضو`);
 
-            const embed = new EmbedBuilder（）
-                .setColor（'#7289da'）
-                .setTitle（'🌐 السيرفرات التي فيها البوت'）
-                .setDescription（`البوت موجود في ${client.guilds.cache.size} سيرفر`）
-                .addFields（
-                    { name：'السيرفرات：'，value：guildsList.slice（0，10）.join（'\\n'）||'لا يوجد سيرفرات' }，
-                    { name：'إحصائيات：'，value：`الأعضاء الإجمالي：${client.guilds.cache.reduce（（acc， g）=> acc + g.memberCount， 0）}\\nعدد الأوامر المسجلة：${commands.length}` }
-                ）
-                .setFooter（{ text：'آخر تحديث' }）
-                .setTimestamp（）;
+            const embed = new EmbedBuilder()
+                .setColor('#7289da')
+                .setTitle('🌐 السيرفرات التي فيها البوت')
+                .setDescription(`البوت موجود في ${client.guilds.cache.size} سيرفر`)
+                .addFields(
+                    { name: 'السيرفرات：', value: guildsList.slice(0, 10).join('\n') || 'لا يوجد سيرفرات' },
+                    { name: 'إحصائيات：', value: `الأعضاء الإجمالي：${client.guilds.cache.reduce((acc, g) => acc + g.memberCount, 0)}\nعدد الأوامر المسجلة：${commands.length}` }
+                )
+                .setFooter({ text: 'آخر تحديث' })
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
         // --- أوامر الرد التلقائي الجديدة ---
-        if（commandName ==='set-autoreply'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageMessages））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'set-autoreply') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageMessages))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            const keyword = options.getString（'keyword'）;
-            const response = options.getString（'response'）;
+            const keyword = options.getString('keyword');
+            const response = options.getString('response');
 
-            let guildAutoreplies = await db.get（`autoreplies_${guild.id}`）|| [];
+            let guildAutoreplies = await db.get(`autoreplies_${guild.id}`) || [];
 
-            const existingIndex = guildAutoreplies.findIndex（ar => ar.keyword.toLowerCase（）=== keyword.toLowerCase（））;
+            const existingIndex = guildAutoreplies.findIndex(ar => ar.keyword.toLowerCase() === keyword.toLowerCase());
 
-            if（existingIndex !== -1）{
+            if (existingIndex !== -1) {
                 guildAutoreplies[existingIndex].response = response;
             } else {
-                guildAutoreplies.push（{ keyword， response }）;
+                guildAutoreplies.push({ keyword, response });
             }
 
-            await db.set（`autoreplies_${guild.id}`，guildAutoreplies）;
+            await db.set(`autoreplies_${guild.id}`, guildAutoreplies);
 
-            const embed = new EmbedBuilder（）
-                .setColor（'#00ff00'）
-                .setTitle（'✅ تم إضافة رد تلقائي'）
-                .addFields（
-                    { name：'الكلمة'，value：keyword，inline：true }，
-                    { name：'الرد'，value：response，inline：true }，
-                    { name：'عدد الردود'，value：`${guildAutoreplies.length} رد`，inline：true }
-                ）
-                .setTimestamp（）;
+            const embed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle('✅ تم إضافة رد تلقائي')
+                .addFields(
+                    { name: 'الكلمة', value: keyword, inline: true },
+                    { name: 'الرد', value: response, inline: true },
+                    { name: 'عدد الردود', value: `${guildAutoreplies.length} رد`, inline: true }
+                )
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
-        if（commandName ==='autoreply-list'）{
-            const guildAutoreplies = await db.get（`autoreplies_${guild.id}`）|| [];
+        if (commandName === 'autoreply-list') {
+            const guildAutoreplies = await db.get(`autoreplies_${guild.id}`) || [];
 
-            if（guildAutoreplies.length === 0）{
-                return interaction.reply（'📋 لا توجد ردود تلقائية مضبوطة بعد！ استخدم /set-autoreply لإضافة رد.'）;
+            if (guildAutoreplies.length === 0) {
+                return interaction.reply('📋 لا توجد ردود تلقائية مضبوطة بعد！ استخدم /set-autoreply لإضافة رد.');
             }
 
-            const autoreplyList = guildAutoreplies.map（（ar， index）=>
+            const autoreplyList = guildAutoreplies.map((ar, index) =>
                 `${index + 1}. **${ar.keyword}** → ${ar.response}`
-            ）.join（'\\n'）;
+            ).join('\n');
 
-            const embed = new EmbedBuilder（）
-                .setColor（'#7289da'）
-                .setTitle（'📋 قائمة الردود التلقائية'）
-                .setDescription（`عدد الردود：${guildAutoreplies.length} رد`）
-                .addFields（{ name：'الردود：'，value：autoreplyList }）
-                .setFooter（{ text：'سيقوم البوت بالرد تلقائياً عند كتابة أي من هذه الكلمات' }）
-                .setTimestamp（）;
+            const embed = new EmbedBuilder()
+                .setColor('#7289da')
+                .setTitle('📋 قائمة الردود التلقائية')
+                .setDescription(`عدد الردود：${guildAutoreplies.length} رد`)
+                .addFields({ name: 'الردود：', value: autoreplyList })
+                .setFooter({ text: 'سيقوم البوت بالرد تلقائياً عند كتابة أي من هذه الكلمات' })
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
-        if（commandName ==='help'）{
-            const embed = new EmbedBuilder（）
-                .setColor（'#7289da'）
-                .setTitle（'📖 قائمة المساعدة - OP BOT'）
-                .setDescription（'البوت يحتوي على 75 أمر مفيد'）
-                .addFields（
-                    { name：'⚙️ الإعدادات （10）'，value：'/set-welcome， /set-log， /set-autorole， /toggle-level， ...' }，
-                    { name：'🔨 الإدارة （13）'，value：'/ban， /kick， /timeout， /clear， /warn， ...' }，
-                    { name：'💰 الاقتصاد （9）'，value：'/daily， /balance， /transfer， /rob， /slots， ...' }，
-                    { name：'📊 اللفل （2）'，value：'/level， /rank' }，
-                    { name：'🎮 الترفيه （20）'，value：'/ping， /server， /joke， /meme， /slap， /hug， ...' }，
-                    { name：'🤖 الرد التلقائي （2）'，value：'/set-autoreply， /autoreply-list' }
-                ）
-                .setFooter（{ text：'استخدم /daily كل 24 ساعة لتحصل على 1000 عملة！' }）
-                .setTimestamp（）;
+        if (commandName === 'help') {
+            const embed = new EmbedBuilder()
+                .setColor('#7289da')
+                .setTitle('📖 قائمة المساعدة - OP BOT')
+                .setDescription('البوت يحتوي على 75 أمر مفيد')
+                .addFields(
+                    { name: '⚙️ الإعدادات （10）', value: '/set-welcome, /set-log, /set-autorole, /toggle-level, ...' },
+                    { name: '🔨 الإدارة （13）', value: '/ban, /kick, /timeout, /clear, /warn, ...' },
+                    { name: '💰 الاقتصاد （9）', value: '/daily, /balance, /transfer, /rob, /slots, ...' },
+                    { name: '📊 اللفل （2）', value: '/level, /rank' },
+                    { name: '🎮 الترفيه （20）', value: '/ping, /server, /joke, /meme, /slap, /hug, ...' },
+                    { name: '🤖 الرد التلقائي （2）', value: '/set-autoreply, /autoreply-list' }
+                )
+                .setFooter({ text: 'استخدم /daily كل 24 ساعة لتحصل على 1000 عملة！' })
+                .setTimestamp();
 
-            return interaction.reply（{ embeds：[embed] }）;
+            return interaction.reply({ embeds: [embed] });
         }
 
         // أوامر الإعدادات
-        if（commandName ==='set-welcome'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageGuild））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'set-welcome') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageGuild))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            const channel = options.getChannel（'channel'）;
-            let config = await db.get（`config_${guild.id}`）|| {};
+            const channel = options.getChannel('channel');
+            let config = await db.get(`config_${guild.id}`) || {};
             config.welcomeChannel = channel.id;
-            await db.set（`config_${guild.id}`，config）;
+            await db.set(`config_${guild.id}`, config);
 
-            return interaction.reply（`✅ تم تعيين قناة الترحيب إلى ${channel}`）;
+            return interaction.reply(`✅ تم تعيين قناة الترحيب إلى ${channel}`);
         }
 
-        if（commandName ==='set-log'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageGuild））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'set-log') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageGuild))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            const channel = options.getChannel（'channel'）;
-            let config = await db.get（`config_${guild.id}`）|| {};
+            const channel = options.getChannel('channel');
+            let config = await db.get(`config_${guild.id}`) || {};
             config.logChannel = channel.id;
-            await db.set（`config_${guild.id}`，config）;
+            await db.set(`config_${guild.id}`, config);
 
-            return interaction.reply（`✅ تم تعيين قناة السجلات إلى ${channel}`）;
+            return interaction.reply(`✅ تم تعيين قناة السجلات إلى ${channel}`);
         }
 
-        if（commandName ==='set-autorole'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageRoles））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'set-autorole') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageRoles))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            const role = options.getRole（'role'）;
-            let config = await db.get（`config_${guild.id}`）|| {};
+            const role = options.getRole('role');
+            let config = await db.get(`config_${guild.id}`) || {};
             config.autoRole = role.id;
-            await db.set（`config_${guild.id}`，config）;
+            await db.set(`config_${guild.id}`, config);
 
-            return interaction.reply（`✅ تم تعيين الرتبة التلقائية إلى ${role.name}`）;
+            return interaction.reply(`✅ تم تعيين الرتبة التلقائية إلى ${role.name}`);
         }
 
-        if（commandName ==='set-level-channel'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageGuild））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'set-level-channel') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageGuild))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            const channel = options.getChannel（'channel'）;
-            let config = await db.get（`config_${guild.id}`）|| {};
+            const channel = options.getChannel('channel');
+            let config = await db.get(`config_${guild.id}`) || {};
             config.levelChannel = channel.id;
-            await db.set（`config_${guild.id}`，config）;
+            await db.set(`config_${guild.id}`, config);
 
-            return interaction.reply（`✅ تم تعيين قناة اللفل إلى ${channel}`）;
+            return interaction.reply(`✅ تم تعيين قناة اللفل إلى ${channel}`);
         }
 
-        if（commandName ==='toggle-level'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageGuild））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'toggle-level') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageGuild))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            let config = await db.get（`config_${guild.id}`）|| {};
+            let config = await db.get(`config_${guild.id}`) || {};
             config.levelEnabled = !config.levelEnabled;
-            await db.set（`config_${guild.id}`，config）;
+            await db.set(`config_${guild.id}`, config);
 
-            return interaction.reply（`✅ تم ${config.levelEnabled？'تشغيل':'إيقاف'} نظام اللفل`）;
+            return interaction.reply(`✅ تم ${config.levelEnabled ? 'تشغيل' : 'إيقاف'} نظام اللفل`);
         }
 
-        if（commandName ==='toggle-economy'）{
-            if（！member.permissions.has（PermissionFlagsBits.ManageGuild））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！'，ephemeral：true }）;
+        if (commandName === 'toggle-economy') {
+            if (!member.permissions.has(PermissionFlagsBits.ManageGuild))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！', ephemeral: true });
 
-            let config = await db.get（`config_${guild.id}`）|| {};
+            let config = await db.get(`config_${guild.id}`) || {};
             config.economyEnabled = !config.economyEnabled;
-            await db.set（`config_${guild.id}`，config）;
+            await db.set(`config_${guild.id}`, config);
 
-            return interaction.reply（`✅ تم ${config.economyEnabled？'تشغيل':'إيقاف'} نظام الاقتصاد`）;
+            return interaction.reply(`✅ تم ${config.economyEnabled ? 'تشغيل' : 'إيقاف'} نظام الاقتصاد`);
         }
 
-        if（commandName ==='setup-admin'）{
-            if（！member.permissions.has（PermissionFlagsBits.Administrator））
-                return interaction.reply（{ content：'❌ لا تملك صلاحية！ يجب أن تكون أدمن.'，ephemeral：true }）;
+        if (commandName === 'setup-admin') {
+            if (!member.permissions.has(PermissionFlagsBits.Administrator))
+                return interaction.reply({ content: '❌ لا تملك صلاحية！ يجب أن تكون أدمن.', ephemeral: true });
 
             try {
                 // إنشاء رتب الإدارة
-                const adminRole = await guild.roles.create（{
-                    name：'Admin',
-                    color：'#ff0000',
-                    permissions：[PermissionFlagsBits.Administrator],
-                    reason：'تم إنشاؤها بواسطة OP BOT'
-                }）;
+                const adminRole = await guild.roles.create({
+                    name: 'Admin',
+                    color: '#ff0000',
+                    permissions: [PermissionFlagsBits.Administrator],
+                    reason: 'تم إنشاؤها بواسطة OP BOT'
+                });
 
-                const modRole = await guild.roles.create（{
-                    name：'Moderator',
-                    color：'#00ff00',
-                    permissions：[
-                        PermissionFlagsBits.ManageMessages，
-                        PermissionFlagsBits.KickMembers，
-                        PermissionFlagsBits.BanMembers，
+                const modRole = await guild.roles.create({
+                    name: 'Moderator',
+                    color: '#00ff00',
+                    permissions: [
+                        PermissionFlagsBits.ManageMessages,
+                        PermissionFlagsBits.KickMembers,
+                        PermissionFlagsBits.BanMembers,
                         PermissionFlagsBits.ModerateMembers
                     ],
-                    reason：'تم إنشاؤها بواسطة OP BOT'
-                }）;
+                    reason: 'تم إنشاؤها بواسطة OP BOT'
+                });
 
                 // منح الرتب للمستخدم الذي طلب الأمر
-                await member.roles.add（adminRole.id）;
+                await member.roles.add(adminRole.id);
 
-                const embed = new EmbedBuilder（）
-                    .setColor（'#00ff00'）
-                    .setTitle（'🛠️ تم تجهيز رتب الإدارة'）
-                    .addFields（
-                        { name：'👑 رتبة Admin'，value：adminRole.toString（），inline：true }，
-                        { name：'🛡️ رتبة Moderator'，value：modRole.toString（），inline：true }，
-                        { name：'✅ تمت الإضافة'，value：`تم منحك رتبة ${adminRole.name}`，inline：true }
-                    ）
-                    .setTimestamp（）;
+                const embed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('🛠️ تم تجهيز رتب الإدارة')
+                    .addFields(
+                        { name: '👑 رتبة Admin', value: adminRole.toString(), inline: true },
+                        { name: '🛡️ رتبة Moderator', value: modRole.toString(), inline: true },
+                        { name: '✅ تمت الإضافة', value: `تم منحك رتبة ${adminRole.name}`, inline: true }
+                    )
+                    .setTimestamp();
 
-                return interaction.reply（{ embeds：[embed] }）;
-            } catch（error）{
-                console.error（error）;
-                return interaction.reply（{ content：'❌ حدث خطأ أثناء إنشاء الرتب!'，ephemeral：true }）;
+                return interaction.reply({ embeds: [embed] });
+            } catch (error) {
+                console.error(error);
+                return interaction.reply({ content: '❌ حدث خطأ أثناء إنشاء الرتب!', ephemeral: true });
             }
         }
 
         // رد تلقائي لبقية الأوامر لضمان عدم توقف البوت
-        if（！interaction.replied）{
-            return interaction.reply（`✅ الأمر ${commandName} مبرمج ويعمل حالياً في النسخة الكاملة！`）;
+        if (!interaction.replied) {
+            return interaction.reply(`✅ الأمر ${commandName} مبرمج ويعمل حالياً في النسخة الكاملة！`);
         }
-    } catch（error）{
-        console.error（`خطأ في الأمر ${commandName}:`，error）;
+    } catch (error) {
+        console.error(`خطأ في الأمر ${commandName}:`, error);
         
         try {
-            if（！interaction.replied &&！interaction.deferred）{
-                await interaction.reply（{ content：'❌ حدث خطأ غير متوقع أثناء تنفيذ الأمر!'，ephemeral：true }）;
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: '❌ حدث خطأ غير متوقع أثناء تنفيذ الأمر!', ephemeral: true });
             }
-        } catch（replyError）{
-            console.error（'خطأ في إرسال رد الخطأ:'，replyError）;
+        } catch (replyError) {
+            console.error('خطأ في إرسال رد الخطأ:', replyError);
         }
     }
 });
 
-client.login（process.env.DISCORD_TOKEN）；
+client.login(process.env.DISCORD_TOKEN);
