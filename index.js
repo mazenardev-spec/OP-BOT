@@ -1257,14 +1257,12 @@ client.on('interactionCreate', async (interaction) => {
                 components: [] 
             });
         }
-
-        // حذف القناة
+// حذف القناة
         await channel.delete('تم إغلاق التذكرة بواسطة المستخدم');
 
         // إرسال رسالة تأكيد
-        const logChannel = guild.channels.cache.find(c => 
-            c.id === (await db.get(`config_${guild.id}`))?.logChannel
-        );
+        const ticketSettings = await db.get(`config_${guild.id}`); // نجلب الإعدادات أولاً
+        const logChannel = guild.channels.cache.get(ticketSettings?.logChannel); // ثم نجد القناة
         
         if (logChannel) {
             const logEmbed = new EmbedBuilder()
@@ -1277,11 +1275,10 @@ client.on('interactionCreate', async (interaction) => {
                 )
                 .setTimestamp();
 
-            await logChannel.send({ embeds: [logEmbed] });
+            await logChannel.send({ embeds: [logEmbed] }).catch(() => {}); 
         }
     } catch (error) {
         console.error('خطأ في تأكيد إغلاق التذكرة:', error);
     }
 });
-
 client.login(process.env.DISCORD_TOKEN);
