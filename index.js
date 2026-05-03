@@ -15,7 +15,7 @@ const client = new Client({
     partials: [Partials.Channel, Partials.Message, Partials.User, Partials.Reaction]
 });
 
-// --- مصفوفة الأوامر الكاملة (75 أمر) ---
+// --- مصفوفة الأوامر الكاملة (77 أمر) ---
 const commands = [
     // [1-10] الإعدادات (SETTINGS)
     { name: 'set-welcome', description: '✨ تحديد قناة الترحيب بالأعضاء الجدد', options: [{ name: 'channel', type: 7, description: 'الروم', required: true }] },
@@ -61,7 +61,7 @@ const commands = [
 
     // [31-50] الاقتصاد واللفل (ECONOMY & LEVEL)
     { name: 'daily', description: '💵 استلام الهديّة اليومية' },
-    { name: 'balance', description: '👛 عرض رصيدك الحالي' },
+    { name: 'credits', description: '👛 عرض رصيدك الحالي' },
     { name: 'level', description: '📊 عرض مستواك الحالي' },
     { name: 'rank', description: '🏆 ترتيبك في السيرفر' },
     { name: 'transfer', description: '💸 تحويل أموال', options: [{ name: 'u', type: 6, description: 'المستلم', required: true }, { name: 'a', type: 4, description: 'المبلغ', required: true }] },
@@ -70,12 +70,12 @@ const commands = [
     { name: 'mining', description: '⛏️ التعدين' },
     { name: 'fish', description: '🎣 صيد السمك' },
 
-    // [51-70] ترفيه وعامة
+    // [51-72] ترفيه وعامة
     { name: 'ping', description: '📶 سرعة الاتصال' },
     { name: 'server', description: '🏰 معلومات السيرفر' },
     { name: 'avatar', description: '👤 صورة الحساب', options: [{ name: 'user', type: 6, description: 'العضو المراد عرض صورته' }] },
     { name: 'help', description: '📖 قائمة المساعدة الكاملة' },
-    { name: 'hack', description: '💻 اختراق وهمي' },
+    { name: 'hack', description: '💻 اختراق وهمي', options: [{ name: 'user', type: 6, description: 'العضو المراد اختراقه', required: true }] },
     { name: 'kill', description: '🔪 قضاء على عضو', options: [{ name: 'user', type: 6, description: 'العضو المراد قتله', required: true }] },
     { name: 'joke', description: '😂 نكتة' },
     { name: 'iq', description: '🧠 مستوى الذكاء' },
@@ -87,11 +87,11 @@ const commands = [
     { name: '8ball', description: '🔮 الكرة السحرية', options: [{ name: 'question', type: 3, description: 'السؤال المطلوب إجابته', required: true }] },
     { name: 'uptime', description: '⏰ مدة التشغيل' },
 
-    // [71-73] الأوامر الجديدة
+    // [73-75] الأوامر الجديدة
     { name: 'status', description: '📊 حالة البوت والإحصائيات' },
     { name: 'servers', description: '🌐 عرض السيرفرات التي فيها البوت' },
 
-    // [74-75] أوامر الرد التلقائي الجديدة
+    // [76-77] أوامر الرد التلقائي الجديدة
     {
         name: 'set-autoreply',
         description: '🤖 إضافة رد تلقائي على كلمة معينة',
@@ -103,6 +103,15 @@ const commands = [
     {
         name: 'autoreply-list',
         description: '📋 عرض قائمة الردود التلقائية'
+    },
+
+    // [78-79] أوامر الترفيه الجديدة
+    {
+        name: 'rolet',
+        description: '🎰 لعبة الروليت - الفائز يحصل على 5000 كريدت',
+        options: [
+            { name: 'target', type: 6, description: 'الشخص الذي تريد استهدافه (اختياري)', required: false }
+        ]
     }
 ];
 
@@ -183,7 +192,7 @@ client.on('guildCreate', async (guild) => {
             .addFields(
                 { name: '📊 عدد الأوامر', value: `${commands.length} أمر`, inline: true },
                 { name: '⚙️ الإعدادات', value: '10 أوامر', inline: true },
-                { name: '🎮 الترفيه', value: '20 أوامر', inline: true }
+                { name: '🎮 الترفيه', value: '22 أوامر', inline: true }
             )
             .setTimestamp();
 
@@ -243,6 +252,9 @@ client.on('guildMemberAdd', async (member) => {
         console.error('خطأ في guildMemberAdd:', error);
     }
 });
+
+// تخزين جلسات الروليت النشطة
+const activeRouletteGames = new Map();
 
 // --- معالج الأوامر التفاعلي ---
 client.on('interactionCreate', async (interaction) => {
@@ -447,23 +459,23 @@ client.on('interactionCreate', async (interaction) => {
                 .setTitle('💵 هدية يومية جديدة!')
                 .setDescription(`✅ تم إضافة 1000 عملة إلى محفظتك!`)
                 .addFields(
-                    { name: '💰 المحفظة الحالية', value: `${userData.wallet} عملة`, inline: true },
-                    { name: '🏦 البنك', value: `${userData.bank} عملة`, inline: true },
-                    { name: '📊 الإجمالي', value: `${userData.wallet + userData.bank} عملة`, inline: true }
+                    { name: '💰 المحفظة الحالية', value: `${userData.wallet} كريدت`, inline: true },
+                    { name: '🏦 البنك', value: `${userData.bank} كريدت`, inline: true },
+                    { name: '📊 الإجمالي', value: `${userData.wallet + userData.bank} كريدت`, inline: true }
                 )
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
         }
 
-        if (commandName === 'balance') {
+        if (commandName === 'credits') {
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle(`👛 رصيد ${user.username}`)
                 .addFields(
-                    { name: '💰 المحفظة', value: `${userData.wallet} عملة`, inline: true },
-                    { name: '🏦 البنك', value: `${userData.bank} عملة`, inline: true },
-                    { name: '📊 الإجمالي', value: `${userData.wallet + userData.bank} عملة`, inline: true }
+                    { name: '💰 المحفظة', value: `${userData.wallet} كريدت`, inline: true },
+                    { name: '🏦 البنك', value: `${userData.bank} كريدت`, inline: true },
+                    { name: '📊 الإجمالي', value: `${userData.wallet + userData.bank} كريدت`, inline: true }
                 )
                 .setTimestamp();
 
@@ -485,7 +497,7 @@ client.on('interactionCreate', async (interaction) => {
             await db.set(`economy_${user.id}`, userData);
             await db.set(`economy_${targetUser.id}`, targetData);
 
-            return interaction.reply(`✅ تم تحويل ${amount} عملة إلى ${targetUser.username}`);
+            return interaction.reply(`✅ تم تحويل ${amount} كريدت إلى ${targetUser.username}`);
         }
 
         if (commandName === 'rob') {
@@ -505,13 +517,13 @@ client.on('interactionCreate', async (interaction) => {
                 await db.set(`economy_${user.id}`, userData);
                 await db.set(`economy_${targetUser.id}`, targetData);
 
-                return interaction.reply(`✅ نجحت السرقة! سرقت ${stolen} عملة من ${targetUser.username}`);
+                return interaction.reply(`✅ نجحت السرقة! سرقت ${stolen} كريدت من ${targetUser.username}`);
             } else {
                 const fine = Math.floor(userData.wallet * 0.2);
                 userData.wallet -= fine;
                 await db.set(`economy_${user.id}`, userData);
 
-                return interaction.reply(`❌ فشلت السرقة! دفع ${fine} عملة كغرامة`);
+                return interaction.reply(`❌ فشلت السرقة! دفع ${fine} كريدت كغرامة`);
             }
         }
 
@@ -528,7 +540,7 @@ client.on('interactionCreate', async (interaction) => {
                 .setDescription(`[ ${result.join(' | ')} ]`)
                 .addFields(
                     { name: 'النتيجة', value: win ? '🎉 فوز كبير!' : '😢 خسارة', inline: true },
-                    { name: 'الجائزة', value: win ? '+500 عملة' : 'لا شيء', inline: true }
+                    { name: 'الجائزة', value: win ? '+500 كريدت' : 'لا شيء', inline: true }
                 )
                 .setTimestamp();
 
@@ -545,7 +557,7 @@ client.on('interactionCreate', async (interaction) => {
             userData.wallet += earnings;
             await db.set(`economy_${user.id}`, userData);
 
-            return interaction.reply(`⛏️ وجدت ${earnings} عملة أثناء التعدين!`);
+            return interaction.reply(`⛏️ وجدت ${earnings} كريدت أثناء التعدين!`);
         }
 
         if (commandName === 'fish') {
@@ -667,7 +679,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (commandName === 'hack') {
-            const targetUser = options.getUser('user') || user;
+            const targetUser = options.getUser('user');
             const steps = [
                 'جاري اختراق البريد الإلكتروني...',
                 'جاري كسر كلمة المرور...',
@@ -688,8 +700,12 @@ client.on('interactionCreate', async (interaction) => {
                             .addFields(
                                 { name: 'البريد الإلكتروني', value: `${targetUser.username.toLowerCase()}@hacked.com` },
                                 { name: 'كلمة المرور', value: '**********' },
-                                { name: 'آخر موقع', value: 'السعودية' }
+                                { name: 'آخر موقع', value: 'السعودية' },
+                                { name: '📱 الرقم', value: `+9665${Math.floor(Math.random() * 90000000) + 10000000}` },
+                                { name: '💳 البطاقة', value: `${Math.floor(Math.random() * 9000) + 1000} **** **** ${Math.floor(Math.random() * 9000) + 1000}` },
+                                { name: '📧 الرسائل', value: `${Math.floor(Math.random() * 50) + 1} رسالة مسروقة` }
                             )
+                            .setImage('https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif')
                             .setTimestamp();
 
                         await interaction.editReply({ content: '', embeds: [embed] });
@@ -803,6 +819,94 @@ client.on('interactionCreate', async (interaction) => {
             const seconds = Math.floor((uptime % 60000) / 1000);
 
             return interaction.reply(`⏰ مدة التشغيل: ${days} يوم، ${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`);
+        }
+
+        // --- لعبة الروليت الجديدة ---
+        if (commandName === 'rolet') {
+            const targetUser = options.getUser('target');
+            const gameId = `${guild.id}-${channel.id}`;
+
+            // التحقق من وجود لعبة نشطة
+            if (activeRouletteGames.has(gameId)) {
+                return interaction.reply({ content: '❌ هناك لعبة روليت نشطة بالفعل في هذه القناة!', ephemeral: true });
+            }
+
+            // إنشاء كائن اللعبة
+            const game = {
+                host: user.id,
+                target: targetUser ? targetUser.id : null,
+                participants: new Set([user.id]),
+                startTime: Date.now(),
+                channelId: channel.id,
+                guildId: guild.id,
+                gameActive: true,
+                winner: null,
+                prize: 5000
+            };
+
+            // حفظ اللعبة
+            activeRouletteGames.set(gameId, game);
+
+            // إنشاء واجهة اللعبة
+            const embed = new EmbedBuilder()
+                .setColor('#FFD700')
+                .setTitle('🎰 لعبة الروليت - جائزة 5000 كريدت!')
+                .setDescription(`**المضيف:** ${user}\n${targetUser ? `**الهدف:** ${targetUser}\n\n` : '\n'}🎮 **قواعد اللعبة:**\n• اللعبة تبدأ بعد 20 ثانية\n• الفائز يحصل على 5000 كريدت\n• يمكنك اختيار طرد شخص، اختيار عشوائي، أو الانسحاب`)
+                .addFields(
+                    { name: '⏱️ الوقت المتبقي', value: '20 ثانية', inline: true },
+                    { name: '👥 المشاركون', value: '1 لاعب', inline: true },
+                    { name: '💰 الجائزة', value: '5000 كريدت', inline: true }
+                )
+                .setFooter({ text: 'اضغط على الزر أدناه للانضمام!' })
+                .setTimestamp();
+
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('join_roulette')
+                        .setLabel('🎮 انضم للعبة')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId('leave_roulette')
+                        .setLabel('🚫 انسحب')
+                        .setStyle(ButtonStyle.Danger)
+                );
+
+            const gameMessage = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+            // حفظ معرف الرسالة
+            game.messageId = gameMessage.id;
+            activeRouletteGames.set(gameId, game);
+
+            // بدء العد التنازلي
+            let countdown = 20;
+            const countdownInterval = setInterval(async () => {
+                if (!activeRouletteGames.has(gameId)) {
+                    clearInterval(countdownInterval);
+                    return;
+                }
+
+                const currentGame = activeRouletteGames.get(gameId);
+                countdown--;
+
+                // تحديث ال embed
+                const updatedEmbed = EmbedBuilder.from(embed.data)
+                    .setFields(
+                        { name: '⏱️ الوقت المتبقي', value: `${countdown} ثانية`, inline: true },
+                        { name: '👥 المشاركون', value: `${currentGame.participants.size} لاعب`, inline: true },
+                        { name: '💰 الجائزة', value: '5000 كريدت', inline: true }
+                    );
+
+                try {
+                    await interaction.editReply({ embeds: [updatedEmbed], components: [row] });
+                } catch (error) {}
+
+                // انتهاء الوقت
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    await startRouletteGame(gameId);
+                }
+            }, 1000);
         }
 
         // --- الأوامر الجديدة ---
@@ -982,16 +1086,16 @@ client.on('interactionCreate', async (interaction) => {
             const embed = new EmbedBuilder()
                 .setColor('#7289da')
                 .setTitle('📖 قائمة المساعدة - OP BOT')
-                .setDescription('البوت يحتوي على 75 أمر مفيد')
+                .setDescription('البوت يحتوي على 77 أمر مفيد')
                 .addFields(
                     { name: '⚙️ الإعدادات (10)', value: '/set-welcome, /set-log, /set-autorole, /toggle-level, ...' },
                     { name: '🔨 الإدارة (13)', value: '/ban, /kick, /timeout, /clear, /warn, ...' },
-                    { name: '💰 الاقتصاد (9)', value: '/daily, /balance, /transfer, /rob, /slots, ...' },
+                    { name: '💰 الاقتصاد (9)', value: '/daily, /credits, /transfer, /rob, /slots, ...' },
                     { name: '📊 اللفل (2)', value: '/level, /rank' },
-                    { name: '🎮 الترفيه (20)', value: '/ping, /server, /joke, /meme, /slap, /hug, ...' },
+                    { name: '🎮 الترفيه (22)', value: '/ping, /server, /joke, /meme, /slap, /hug, /rolet, ...' },
                     { name: '🤖 الرد التلقائي (2)', value: '/set-autoreply, /autoreply-list' }
                 )
-                .setFooter({ text: 'استخدم /daily كل 24 ساعة لتحصل على 1000 عملة!' })
+                .setFooter({ text: 'استخدم /daily كل 24 ساعة لتحصل على 1000 كريدت!' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -1130,6 +1234,132 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
+// معالج أزرار الروليت
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isButton()) return;
+
+    const { customId, user, guild, channel } = interaction;
+    const gameId = `${guild.id}-${channel.id}`;
+
+    if (!activeRouletteGames.has(gameId)) return;
+
+    const game = activeRouletteGames.get(gameId);
+
+    if (customId === 'join_roulette') {
+        if (game.participants.has(user.id)) {
+            return interaction.reply({ content: '❌ أنت بالفعل في اللعبة!', ephemeral: true });
+        }
+
+        game.participants.add(user.id);
+        activeRouletteGames.set(gameId, game);
+
+        return interaction.reply({ content: `✅ ${user} انضم للعبة!`, ephemeral: true });
+    }
+
+    if (customId === 'leave_roulette') {
+        if (!game.participants.has(user.id)) {
+            return interaction.reply({ content: '❌ أنت لست في اللعبة!', ephemeral: true });
+        }
+
+        game.participants.delete(user.id);
+        activeRouletteGames.set(gameId, game);
+
+        return interaction.reply({ content: `✅ ${user} انسحب من اللعبة!`, ephemeral: true });
+    }
+});
+
+// دالة بدء لعبة الروليت
+async function startRouletteGame(gameId) {
+    const game = activeRouletteGames.get(gameId);
+    if (!game || !game.gameActive) return;
+
+    game.gameActive = false;
+    activeRouletteGames.set(gameId, game);
+
+    const guild = client.guilds.cache.get(game.guildId);
+    const channel = guild?.channels.cache.get(game.channelId);
+    if (!channel) return;
+
+    // التحقق من عدد المشاركين
+    if (game.participants.size < 2) {
+        const embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('🎰 لعبة الروليت - ملغاة')
+            .setDescription('❌ تم إلغاء اللعبة بسبب عدم وجود مشاركين كافيين!')
+            .setTimestamp();
+
+        try {
+            await channel.send({ embeds: [embed] });
+        } catch (error) {}
+        
+        activeRouletteGames.delete(gameId);
+        return;
+    }
+
+    // تحويل الـ Set إلى مصفوفة
+    const participantsArray = Array.from(game.participants);
+    let winnerId;
+
+    // تحديد الفائز
+    if (game.target) {
+        // إذا كان هناك هدف محدد
+        const random = Math.random();
+        if (random < 0.4) {
+            // 40% فرصة لطرد الهدف
+            winnerId = participantsArray.find(id => id !== game.target);
+        } else if (random < 0.7) {
+            // 30% فرصة للفوز العشوائي
+            winnerId = participantsArray[Math.floor(Math.random() * participantsArray.length)];
+        } else {
+            // 30% فرصة للانسحاب (لا فائز)
+            winnerId = null;
+        }
+    } else {
+        // إذا لم يكن هناك هدف، فائز عشوائي
+        winnerId = participantsArray[Math.floor(Math.random() * participantsArray.length)];
+    }
+
+    // تحديث حالة اللعبة
+    game.winner = winnerId;
+    activeRouletteGames.set(gameId, game);
+
+    // عرض النتائج
+    const embed = new EmbedBuilder()
+        .setColor(winnerId ? '#00ff00' : '#ff0000')
+        .setTitle('🎰 نتيجة لعبة الروليت!')
+        .setDescription(winnerId ? 
+            `🎉 **الفائز:** <@${winnerId}>\n💰 **الجائزة:** 5000 كريدت` : 
+            '🤷 **النتيجة:** انسحاب - لا يوجد فائز')
+        .addFields(
+            { name: '👥 عدد المشاركين', value: `${participantsArray.length} لاعب`, inline: true },
+            { name: '🎯 الهدف', value: game.target ? `<@${game.target}>` : 'عشوائي', inline: true },
+            { name: '⏱️ مدة اللعبة', value: '20 ثانية', inline: true }
+        )
+        .setFooter({ text: 'مبروك للفائز!' })
+        .setTimestamp();
+
+    // منح الجائزة للفائز
+    if (winnerId) {
+        let winnerData = await db.get(`economy_${winnerId}`) || { wallet: 0, bank: 0, lastDaily: 0 };
+        winnerData.wallet += game.prize;
+        await db.set(`economy_${winnerId}`, winnerData);
+
+        // تحديث الـ embed بإضافة معلومة الرصيد
+        embed.addFields({ name: '💳 الرصيد الجديد', value: `${winnerData.wallet} كريدت`, inline: true });
+    }
+
+    try {
+        await channel.send({ embeds: [embed] });
+    } catch (error) {}
+
+    // حذف اللعبة من الذاكرة بعد 30 ثانية
+    setTimeout(() => {
+        if (activeRouletteGames.has(gameId)) {
+            activeRouletteGames.delete(gameId);
+        }
+    }, 30000);
+}
+
 // معالج إنشاء التذاكر
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
@@ -1257,12 +1487,13 @@ client.on('interactionCreate', async (interaction) => {
                 components: [] 
             });
         }
-// حذف القناة
+
+        // حذف القناة
         await channel.delete('تم إغلاق التذكرة بواسطة المستخدم');
 
         // إرسال رسالة تأكيد
-        const ticketSettings = await db.get(`config_${guild.id}`); // نجلب الإعدادات أولاً
-        const logChannel = guild.channels.cache.get(ticketSettings?.logChannel); // ثم نجد القناة
+        const ticketSettings = await db.get(`config_${guild.id}`);
+        const logChannel = guild.channels.cache.get(ticketSettings?.logChannel);
         
         if (logChannel) {
             const logEmbed = new EmbedBuilder()
@@ -1275,10 +1506,11 @@ client.on('interactionCreate', async (interaction) => {
                 )
                 .setTimestamp();
 
-            await logChannel.send({ embeds: [logEmbed] }).catch(() => {}); 
+            await logChannel.send({ embeds: [logEmbed] }).catch(() => {});
         }
     } catch (error) {
         console.error('خطأ في تأكيد إغلاق التذكرة:', error);
     }
 });
+
 client.login(process.env.DISCORD_TOKEN);
