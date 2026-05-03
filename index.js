@@ -227,8 +227,7 @@ client.once('ready', async () => {
         console.log(`✅ تم تسجيل ${commands.length} أمر بنجاح`);
 
         // تحديث نشاط البوت
-        client.user.setActivity(`OP BOT | ${commands.length} Commands`, { type: ActivityType.Watching });
-
+        client.user.setActivity(`OPBOT | ${client.guilds.cache.size} Servers`, { type: ActivityType.Watching });
         // إظهار حالة البوت
         console.log(`📊 البوت موجود في ${client.guilds.cache.size} سيرفر`);
         console.log(`👥 عدد الأعضاء الإجمالي ${client.guilds.cache.reduce((acc, g) => acc + g.memberCount, 0)}`);
