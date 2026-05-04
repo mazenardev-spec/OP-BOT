@@ -1375,15 +1375,15 @@ client.on('interactionCreate', async (interaction) => {
                parent: interaction.channel.parentId,
                permissionOverwrites:[
                    {
-                       id：guild.id,
-                       deny：[PermissionFlagsBits.ViewChannel]
+                       id:guild.id,
+                       deny:[PermissionFlagsBits.ViewChannel]
                    },
                    {
-                       id：user.id,
-                       allow：[PermissionFlagsBits.ViewChannel，PermissionFlagsBits.SendMessages，PermissionFlagsBits.ReadMessageHistory]
+                       id:user.id,
+                       allow:[PermissionFlagsBits.ViewChannel，PermissionFlagsBits.SendMessages，PermissionFlagsBits.ReadMessageHistory]
                    }
                ],
-               reason：`تذكرة دعم من ${user.username}`
+               reason:`تذكرة دعم من ${user.username}`
            });
 
            // إرسال رسالة الترحيب
@@ -1392,9 +1392,9 @@ client.on('interactionCreate', async (interaction) => {
                .setTitle(`🎫 تذكرة دعم - ${user.username}`)
                .setDescription("مرحباً! فريق الدعم سيساعدك قريباً.\n\nيرجى شرح مشكلتك بالتفصيل")
                .addFields(
-                   {name："📝 التعليمات"，value："• انتظر رد فريق الدعم\n• لا تذكر الأعضاء بشكل عشوائي\n• استخدم الزر أدناه لإغلاق التذكرة"}
+                   {name:"📝 التعليمات"，value:"• انتظر رد فريق الدعم\n• لا تذكر الأعضاء بشكل عشوائي\n• استخدم الزر أدناه لإغلاق التذكرة"}
                )
-               .setFooter({text："OP BOT - نظام الدعم"})
+               .setFooter({text:"OP BOT - نظام الدعم"})
                .setTimestamp();
 
            const row=new ActionRowBuilder()
@@ -1406,20 +1406,20 @@ client.on('interactionCreate', async (interaction) => {
                );
 
            await ticketChannel.send({
-               content：`${user} مرحباً بك!\n<@&${guild.roles.cache.find(r=>r.name==="Admin"||r.name==="Moderator")?.id||""}>`,
-               embeds：[embed],
-               components：[row]
+               content:`${user} مرحباً بك!\n<@&${guild.roles.cache.find(r=>r.name==="Admin"||r.name==="Moderator")?.id||""}>`,
+               embeds:[embed],
+               components:[row]
            });
 
            await interaction.reply({
-               content：`✅ تم إنشاء تذكرتك ：${ticketChannel}`,
-               ephemeral：true
+               content:`✅ تم إنشاء تذكرتك :${ticketChannel}`,
+               ephemeral:true
            });
        }catch(error){
-           console.error("خطأ في إنشاء التذكرة："，error);
+           console.error("خطأ في إنشاء التذكرة:"，error);
            await interaction.reply({
-               content："❌ حدث خطأ أثناء إنشاء التذكرة!"，
-               ephemeral：true
+               content:"❌ حدث خطأ أثناء إنشاء التذكرة!"，
+               ephemeral:true
            });
        }
    }
@@ -1432,8 +1432,8 @@ client.on('interactionCreate', async (interaction) => {
            // التحقق مما إذا كانت القناة تذكرة
            if(!channel.name.startsWith("ticket-")){
                return interaction.reply({
-                   content："❌ هذه ليست قناة تذكرة!"，
-                   ephemeral：true
+                   content:"❌ هذه ليست قناة تذكرة!"，
+                   ephemeral:true
                });
            }
 
@@ -1457,12 +1457,12 @@ client.on('interactionCreate', async (interaction) => {
                );
 
            await interaction.reply({
-               embeds：[confirmEmbed],
-               components：[confirmRow],
-               ephemeral：true
+               embeds:[confirmEmbed],
+               components:[confirmRow],
+               ephemeral:true
            });
        }catch(error){
-           console.error("خطأ في إغلاق التذكرة："，error);
+           console.error("خطأ في إغلاق التذكرة:"，error);
        }
    }
 
@@ -1476,9 +1476,9 @@ client.on('interactionCreate', async (interaction) => {
 
            if(interaction.customId==="cancel_close"){
                return interaction.update({
-                   content："✅ تم إلغاء إغلاق التذكرة."，
-                   embeds：[]，
-                   components：[]
+                   content:"✅ تم إلغاء إغلاق التذكرة."，
+                   embeds:[]，
+                   components:[]
                });
            }
 
@@ -1495,19 +1495,19 @@ client.on('interactionCreate', async (interaction) => {
                        .setColor("#ff0000")
                        .setTitle("🎫 تذكرة مغلقة")
                        .addFields(
-                           {name："👤 المستخدم"，value：user.username},
-                           {name："📝 التذكرة"，value：channel.name},
-                           {name："⏰ الوقت"，value：new Date().toLocaleString()}
+                           {name:"👤 المستخدم"，value:user.username},
+                           {name:"📝 التذكرة"，value:channel.name},
+                           {name:"⏰ الوقت"，value:new Date().toLocaleString()}
                        )
                        .setTimestamp();
 
-                   await logChannel.send({embeds：[logEmbed]}).catch(()=>{});
+                   await logChannel.send({embeds:[logEmbed]}).catch(()=>{});
                }
            }catch(logError){
-               console.error("خطأ في تسجيل إغلاق التذكرة："，logError);
+               console.error("خطأ في تسجيل إغلاق التذكرة:"，logError);
            }
        }catch(error){
-           console.error("خطأ في تأكيد إغلاق التذكرة："，error);
+           console.error("خطأ في تأكيد إغلاق التذكرة:"，error);
        }
    });
 
