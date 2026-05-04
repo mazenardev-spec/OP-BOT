@@ -1372,7 +1372,7 @@ client.on('interactionCreate', async (interaction) => {
            const ticketChannel=await guild.channels.create({
                name:`ticket-${user.username}-${Date.now().toString().slice(-4)}`,
                type: 0,
-               parent：interaction.channel.parentId,
+               parent: interaction.channel.parentId,
                permissionOverwrites:[
                    {
                        id：guild.id,
