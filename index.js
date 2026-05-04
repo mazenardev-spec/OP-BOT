@@ -1371,7 +1371,7 @@ client.on('interactionCreate', async (interaction) => {
            // إنشاء قناة التذكرة
            const ticketChannel=await guild.channels.create({
                name:`ticket-${user.username}-${Date.now().toString().slice(-4)}`,
-               type：0,
+               type: 0,
                parent：interaction.channel.parentId,
                permissionOverwrites:[
                    {
