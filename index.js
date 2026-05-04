@@ -1380,7 +1380,7 @@ client.on('interactionCreate', async (interaction) => {
                    },
                    {
                        id:user.id,
-                       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
+                       allow:[PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.ReadMessageHistory]
                    }
                ],
                reason:`تذكرة دعم من ${user.username}`
@@ -1392,7 +1392,7 @@ client.on('interactionCreate', async (interaction) => {
                .setTitle(`🎫 تذكرة دعم - ${user.username}`)
                .setDescription("مرحباً! فريق الدعم سيساعدك قريباً.\n\nيرجى شرح مشكلتك بالتفصيل")
                .addFields(
-                   {name:"📝 التعليمات"，value:"• انتظر رد فريق الدعم\n• لا تذكر الأعضاء بشكل عشوائي\n• استخدم الزر أدناه لإغلاق التذكرة"}
+                   {name:"📝 التعليمات",value:"• انتظر رد فريق الدعم\n• لا تذكر الأعضاء بشكل عشوائي\n• استخدم الزر أدناه لإغلاق التذكرة"}
                )
                .setFooter({text:"OP BOT - نظام الدعم"})
                .setTimestamp();
@@ -1416,9 +1416,9 @@ client.on('interactionCreate', async (interaction) => {
                ephemeral:true
            });
        }catch(error){
-           console.error("خطأ في إنشاء التذكرة:"，error);
+           console.error("خطأ في إنشاء التذكرة:",error);
            await interaction.reply({
-               content:"❌ حدث خطأ أثناء إنشاء التذكرة!"，
+               content:"❌ حدث خطأ أثناء إنشاء التذكرة!",
                ephemeral:true
            });
        }
@@ -1432,7 +1432,7 @@ client.on('interactionCreate', async (interaction) => {
            // التحقق مما إذا كانت القناة تذكرة
            if(!channel.name.startsWith("ticket-")){
                return interaction.reply({
-                   content:"❌ هذه ليست قناة تذكرة!"，
+                   content:"❌ هذه ليست قناة تذكرة!",
                    ephemeral:true
                });
            }
@@ -1462,22 +1462,22 @@ client.on('interactionCreate', async (interaction) => {
                ephemeral:true
            });
        }catch(error){
-           console.error("خطأ في إغلاق التذكرة:"，error);
+           console.error("خطأ في إغلاق التذكرة:",error);
        }
    }
 
    // تأكيد إغلاق التذكرة
-   client.on('interactionCreate'，async(interaction)=>{
+   client.on('interactionCreate',async(interaction)=>{
        if(!interaction.isButton())return;
-       if(!["confirm_close"，"cancel_close"].includes(interaction.customId))return;
+       if(!["confirm_close","cancel_close"].includes(interaction.customId))return;
 
        try{
-           const{channel，guild，user}=interaction;
+           const{channel,guild,user}=interaction;
 
            if(interaction.customId==="cancel_close"){
                return interaction.update({
-                   content:"✅ تم إلغاء إغلاق التذكرة."，
-                   embeds:[]，
+                   content:"✅ تم إلغاء إغلاق التذكرة.",
+                   embeds:[],
                    components:[]
                });
            }
@@ -1495,19 +1495,19 @@ client.on('interactionCreate', async (interaction) => {
                        .setColor("#ff0000")
                        .setTitle("🎫 تذكرة مغلقة")
                        .addFields(
-                           {name:"👤 المستخدم"，value:user.username},
-                           {name:"📝 التذكرة"，value:channel.name},
-                           {name:"⏰ الوقت"，value:new Date().toLocaleString()}
+                           {name:"👤 المستخدم",value:user.username},
+                           {name:"📝 التذكرة",value:channel.name},
+                           {name:"⏰ الوقت",value:new Date().toLocaleString()}
                        )
                        .setTimestamp();
 
                    await logChannel.send({embeds:[logEmbed]}).catch(()=>{});
                }
            }catch(logError){
-               console.error("خطأ في تسجيل إغلاق التذكرة:"，logError);
+               console.error("خطأ في تسجيل إغلاق التذكرة:",logError);
            }
        }catch(error){
-           console.error("خطأ في تأكيد إغلاق التذكرة:"，error);
+           console.error("خطأ في تأكيد إغلاق التذكرة:",error);
        }
    });
 
