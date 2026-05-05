@@ -1258,7 +1258,7 @@ client.on('interactionCreate', async (interaction) => {
                  const channelOption=options.getChannel('channel');
                  let config=await db.get(`config_${guild.id}`)||{};
                  config.logChannel=channelOption.id;
-                1await db.set(`config_${guild.id}`,config);
+                await db.set(`config_${guild.id}`, config);
 
                   return interaction.reply(`✅ تم تعيين قناة السجلات إلى ${channelOption}`);
               }
