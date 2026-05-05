@@ -1265,7 +1265,7 @@ client.on('interactionCreate', async (interaction) => {
 
               if(commandName==='set-autorole'){
                   if(!member.permissions.has(PermissionFlagsBits.ManageRoles))
-                      return interaction.reply({content:'❌ لا تملك صلاحية!',ephemeral1=true});
+                      return interaction.reply({ content: '❌ لا تملك صلاحية!', ephemeral: true });
 
                   const roleOption=options.getRole('role');
                   let config=await db.get(`config_${guild.id}`)||{};
