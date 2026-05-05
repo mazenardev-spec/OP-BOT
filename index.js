@@ -17,6 +17,7 @@ const client = new Client({
 });
 
 // نظام الكولداون للأمر /op
+// نظام الكولداون للأمر /op
 const opCooldowns = new Collection();
 
 // --- مصفوفة الأوامر الكاملة (77 أمر) ---
