@@ -1035,12 +1035,14 @@ client.on('interactionCreate', async (interaction) => {
          if (commandName === 'slap') {
              const targetUser = options.getUser('user');
              const actions = [
-                 `قام ${user.username} بصفع ${targetUser.username} بقوة! ✋`,
-                 `قام ${user.username) برمي ${targetUser.username} بالحذاء! 👞`,
-                 `قام ${user.username} بضرب ${targetUser.username} بالوسادة! 🛏️`,
-                 `قام ${user.username} بلكم ${targetUser.username} في الوجه! 👊`
+                 `قام ${user.username} بصفع ${targetUser.username} بقوة! ✋`, [cite: 236]
+                 `قام ${user.username} برمي ${targetUser.username} بالحذاء! 👞`, [cite: 237]
+                 `قام ${user.username} بضرب ${targetUser.username} بالوسادة! 🛏️`, [cite: 238]
+                 `قام ${user.username} بلكم ${targetUser.username} في الوجه! 👊` [cite: 239]
              ];
-
+             const randomAction = actions[Math.floor(Math.random() * actions.length)]; [cite: 240]
+             return interaction.reply(`✋ ${randomAction}`); [cite: 241]
+        }
              const randomAction = actions[Math.floor(Math.random() * actions.length)];
              return interaction.reply(`✋ ${randomAction}`);
          }
