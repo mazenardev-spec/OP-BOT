@@ -2,10 +2,12 @@ const {
     Client, GatewayIntentBits, Partials, EmbedBuilder, ActivityType,
     PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle,
     ApplicationCommandOptionType, REST, Routes, Collection,
-    ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType
+    ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType,
+    WebhookClient, AttachmentBuilder
 } = require('discord.js');
 const { QuickDB } = require("quick.db");
 const db = new QuickDB();
+const fetch = require('node-fetch');
 
 const client = new Client({
     intents: [
@@ -18,6 +20,9 @@ const client = new Client({
 
 // نظام الكولداون للأمر /op
 const opCooldowns = new Collection();
+
+// نظام تخزين هوية السيرفر
+const serverIdentities = new Map();
 
 // --- مصفوفة الأوامر الكاملة (77 أمر) ---
 const commands = [
@@ -221,11 +226,21 @@ client.on('guildCreate', async (guild) => {
     }
 });
 
-// تسجيل الأوامر مع .toJSON() الصحيح
+// تحميل هويات السيرفرات من قاعدة البيانات عند البدء
 client.once('ready', async () => {
     console.log(`✅ OP BOT Online :${client.user.tag}`);
 
     try {
+        // تحميل هويات السيرفرات
+        const allData = await db.all();
+        for (const [key, value] of Object.entries(allData)) {
+            if (key.startsWith('identity_')) {
+                const guildId = key.replace('identity_', '');
+                serverIdentities.set(guildId, value);
+                console.log(`✅ تم تحميل هوية السيرفر ${guildId}`);
+            }
+        }
+
         // تحويل الأوامر إلى JSON بشكل صحيح
         const commandsJSON = commands.map(cmd => ({
             name: cmd.name,
@@ -239,7 +254,7 @@ client.once('ready', async () => {
 
         // تحديث نشاط البوت
         client.user.setActivity(`OPBOT | ${client.guilds.cache.size} Servers`, { type: ActivityType.Watching });
-        
+
         // إظهار حالة البوت
         console.log(`📊 البوت موجود في ${client.guilds.cache.size} سيرفر`);
         console.log(`👥 عدد الأعضاء الإجمالي ${client.guilds.cache.reduce((acc, g) => acc + g.memberCount, 0)}`);
@@ -267,6 +282,69 @@ client.on('guildMemberAdd', async (member) => {
 // تخزين جلسات الروليت النشطة
 const activeRouletteGames = new Map();
 
+// دالة لتحميل الصور المرفوعة إلى رابط
+async function uploadToImgur(imageBuffer) {
+    try {
+        const response = await fetch('https://api.imgur.com/3/image', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Client-ID 8e8b8b8b8b8b8b8',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image: imageBuffer.toString('base64')
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            return data.data.link;
+        }
+        return null;
+    } catch (error) {
+        console.error('خطأ في تحميل الصورة:', error);
+        return null;
+    }
+}
+
+// دالة لإرسال الرسائل عبر الويب هوك
+async function sendWebhookMessage(channel, content, embeds, identity) {
+    try {
+        // البحث عن ويب هوك موجود أو إنشاء واحد جديد
+        const webhooks = await channel.fetchWebhooks();
+        let webhook = webhooks.find(wh => wh.name === 'OP BOT Mirror');
+        
+        if (!webhook) {
+            webhook = await channel.createWebhook({
+                name: 'OP BOT Mirror',
+                avatar: identity?.avatar || client.user.displayAvatarURL(),
+                reason: 'نظام Mirroring للبوت'
+            });
+        }
+
+        // تحديث بيانات الويب هوك إذا تغيرت الهوية
+        if (identity) {
+            await webhook.edit({
+                name: identity.name || 'OP BOT',
+                avatar: identity.avatar || client.user.displayAvatarURL()
+            });
+        }
+
+        // إرسال الرسالة عبر الويب هوك
+        await webhook.send({
+            content: content,
+            embeds: embeds,
+            username: identity?.name || 'OP BOT',
+            avatarURL: identity?.avatar || client.user.displayAvatarURL()
+        });
+        
+        return true;
+    } catch (error) {
+        console.error('خطأ في إرسال الويب هوك:', error);
+        return false;
+    }
+}
+
 // --- معالج الأوامر التفاعلي ---
 client.on('interactionCreate', async (interaction) => {
     try {
@@ -275,9 +353,9 @@ client.on('interactionCreate', async (interaction) => {
 
         // الأمر /op المضافة (التحديث)
         if (commandName === 'op') {
-            // التحقق من صلاحية المستخدم (ManageGuild)
-            if (!member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                return interaction.reply({ content: '❌ هذا الأمر متاح فقط لمن لديه صلاحية إدارة السيرفر!', ephemeral: true });
+            // التحقق من صلاحية المستخدم (مالك السيرفر فقط)
+            if (member.id !== guild.ownerId) {
+                return interaction.reply({ content: '❌ هذا الأمر متاح فقط لمالك السيرفر!', ephemeral: true });
             }
 
             // التحقق من الكولداون (15 دقيقة لكل سيرفر)
@@ -286,106 +364,142 @@ client.on('interactionCreate', async (interaction) => {
             const cooldownTime = opCooldowns.get(cooldownKey);
 
             if (cooldownTime && now < cooldownTime) {
-                const timeLeft = Math.floor((cooldownTime - now) / 60000);
-                return interaction.reply({ content: `⏳ يجب الانتظار ${timeLeft} دقيقة قبل استخدام هذا الأمر مرة أخرى في هذا السيرفر!`, ephemeral: true });
+                const remainingTime = Math.ceil((cooldownTime - now) / 1000 / 60);
+                return interaction.reply({ 
+                    content: `⏳ يجب الانتظار ${remainingTime} دقيقة قبل استخدام الأمر مرة أخرى!`, 
+                    ephemeral: true 
+                });
             }
 
-            // تعيين الكولداون لمدة 15 دقيقة
-            opCooldowns.set(cooldownKey, now + 900000);
-
-            // إنشاء Modal
+            // إنشاء Modal مع حقول متطورة
             const modal = new ModalBuilder()
                 .setCustomId('op_modal')
-                .setTitle('تحديث بيانات البوت');
+                .setTitle('🔄 تحديث هوية البوت');
 
-            // خانات الإدخال
-            const nicknameInput = new TextInputBuilder()
-                .setCustomId('nickname_input')
-                .setLabel('الاسم الجديد للبوت في السيرفر')
+            const nameInput = new TextInputBuilder()
+                .setCustomId('bot_name')
+                .setLabel('اسم البوت الجديد')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder('مثال :OP Bot Helper')
+                .setPlaceholder('أدخل اسم البوت الجديد (اختياري)')
                 .setRequired(false)
                 .setMaxLength(32);
 
             const avatarInput = new TextInputBuilder()
-                .setCustomId('avatar_input')
-                .setLabel('رابط صورة البوت في السيرفر')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('مثال :https://example.com/image.png')
+                .setCustomId('bot_avatar')
+                .setLabel('رابط/ملف الصورة الجديدة')
+                .setStyle(TextInputStyle.Paragraph)
+                .setPlaceholder('ضع رابط الصورة أو اسحب وأسقط الصورة هنا (اختياري)\nمثال: https://example.com/image.png')
                 .setRequired(false);
 
             const bannerInput = new TextInputBuilder()
-                .setCustomId('banner_input')
-                .setLabel('رابط بانر البوت في السيرفر')
+                .setCustomId('bot_banner')
+                .setLabel('رابط البانر الجديد')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder('مثال :https://example.com/banner.png')
+                .setPlaceholder('أدخل رابط البانر الجديد (اختياري)')
                 .setRequired(false);
 
-            // إضافة الخانات إلى Modal
-            const firstActionRow = new ActionRowBuilder().addComponents(nicknameInput);
-            const secondActionRow = new ActionRowBuilder().addComponents(avatarInput);
-            const thirdActionRow = new ActionRowBuilder().addComponents(bannerInput);
+            const actionRow1 = new ActionRowBuilder().addComponents(nameInput);
+            const actionRow2 = new ActionRowBuilder().addComponents(avatarInput);
+            const actionRow3 = new ActionRowBuilder().addComponents(bannerInput);
 
-            modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
+            modal.addComponents(actionRow1, actionRow2, actionRow3);
 
-            // عرض Modal للمستخدم
             await interaction.showModal(modal);
-        }
 
-        // معالج ModalSubmit للـ /op
-        if (interaction.isModalSubmit() && interaction.customId === 'op_modal') {
-            const nickname = interaction.fields.getTextInputValue('nickname_input');
-            const avatarUrl = interaction.fields.getTextInputValue('avatar_input');
-            const bannerUrl = interaction.fields.getTextInputValue('banner_input');
-
+            // معالج رد Modal
+            const filter = (i) => i.customId === 'op_modal' && i.user.id === user.id;
+            
             try {
-                const botMember = guild.members.me;
+                const modalResponse = await interaction.awaitModalSubmit({ filter, time: 300000 });
+                
+                await modalResponse.deferReply({ ephemeral: true });
 
-                // تحديث Nickname إذا تم تقديمه
-                if (nickname && nickname.trim() !== "") {
-                    await botMember.setNickname(nickname.trim());
-                }
+                const nickname = modalResponse.fields.getTextInputValue('bot_name');
+                const avatarInputValue = modalResponse.fields.getTextInputValue('bot_avatar');
+                const bannerUrl = modalResponse.fields.getTextInputValue('bot_banner');
 
-                // تحديث Avatar إذا تم تقديمه
-                if (avatarUrl && avatarUrl.trim() !== "") {
-                    await botMember.setAvatar(avatarUrl.trim()).catch(error => {
-                        if (error.code === 50035) {
-                            throw new Error('Rate Limit: يرجى الانتظار بضع دقائق قبل تحديث الصورة مرة أخرى');
+                let avatarUrl = null;
+
+                // معالجة رابط الصورة
+                if (avatarInputValue && avatarInputValue.trim() !== "") {
+                    // التحقق إذا كان رابط أم ملف
+                    if (avatarInputValue.startsWith('http')) {
+                        avatarUrl = avatarInputValue.trim();
+                    } else if (modalResponse.attachments.size > 0) {
+                        // معالجة المرفقات
+                        const attachment = modalResponse.attachments.first();
+                        if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+                            avatarUrl = attachment.url;
                         }
-                        throw error;
-                    });
+                    }
                 }
 
-                // تحديث Banner إذا تم تقديمه
-                if (bannerUrl && bannerUrl.trim() !== "") {
-                    await guild.setBanner(bannerUrl.trim()).catch(() => {});
-                }
+                // حفظ البيانات في قاعدة البيانات
+                const identityData = {
+                    name: nickname || null,
+                    avatar: avatarUrl || null,
+                    banner: bannerUrl || null,
+                    updatedAt: Date.now(),
+                    updatedBy: user.id
+                };
 
-                // إرسال رد النجاح للجميع
+                await db.set(`identity_${guild.id}`, identityData);
+                serverIdentities.set(guild.id, identityData);
+
+                // تحديث الكولداون (15 دقيقة)
+                opCooldowns.set(cooldownKey, now + (15 * 60 * 1000));
+
                 const embed = new EmbedBuilder()
                     .setColor('#00ff00')
-                    .setTitle('✅ تم تحديث بيانات البوت')
+                    .setTitle('✅ تم تحديث هوية البوت')
                     .addFields(
-                        { name: '👤 Nickname', value: nickname || 'لم يتغير', inline: true },
-                        { name: '🖼️ Avatar', value: (avatarUrl ? 'تم التحديث' : 'لم يتغير'), inline: true },
-                        { name: '🎨 Banner', value: (bannerUrl ? 'تم التحديث' : 'لم يتغير'), inline: true }
+                        { name: '👤 الاسم', value: nickname || 'لم يتغير', inline: true },
+                        { name: '🖼️ الصورة', value: (avatarUrl ? 'تم التحديث' : 'لم تتغير'), inline: true },
+                        { name: '🎨 البانر', value: (bannerUrl ? 'تم التحديث' : 'لم يتغير'), inline: true }
                     )
+                    .setFooter({ text: `آخر تحديث بواسطة: ${user.username}` })
                     .setTimestamp();
 
-                await interaction.reply({ embeds: [embed] });
-            } catch (error) {
-                console.error('خطأ في تحديث بيانات البوت:', error);
-                
-                let errorMsg = '';
-                if (error.code === 50035) {
-                    errorMsg = '❌ حدث Rate Limit من Discord! حاول مرة أخرى بعد بضع دقائق.';
-                } else if (error.message.includes('Invalid Form Body')) {
-                    errorMsg = '❌ رابط الصورة غير صحيح أو غير متاح.';
-                } else {
-                    errorMsg = `❌ حدث خطأ أثناء تحديث بيانات البوت:\n${error.message}`;
-                }
+                await modalResponse.editReply({ embeds: [embed] });
 
-                await interaction.reply({ content: errorMsg, ephemeral: true });
+            } catch (error) {
+                console.error('خطأ في معالجة Modal:', error);
+            }
+        }
+
+        // --- نظام Mirroring لجميع ردود البوت ---
+        // استثناء: ردود ephemeral لا تمر عبر الويب هوك
+        if (interaction.replied || interaction.deferred) return;
+
+        // الحصول على هوية السيرفر
+        const identity = serverIdentities.get(guild.id);
+        
+        // إذا كانت هناك هوية محفوظة، استخدم الويب هوك
+        if (identity && (identity.name || identity.avatar)) {
+            try {
+                // إلغاء الرد العادي
+                await interaction.deferReply();
+                
+                // إرسال الرسالة عبر الويب هوك
+                const success = await sendWebhookMessage(channel, 
+                    `**${user.username}** استخدم الأمر **/${commandName}**`, 
+                    [], 
+                    identity
+                );
+                
+                if (success) {
+                    // حذف الرد المؤجل
+                    await interaction.deleteReply().catch(() => {});
+                } else {
+                    // العودة للرد العادي إذا فشل الويب هوك
+                    await interaction.editReply('✅ تم تنفيذ الأمر');
+                }
+                
+                // استمر في معالجة الأمر
+            } catch (error) {
+                console.error('خطأ في نظام Mirroring:', error);
+                // العودة للرد العادي
+                await interaction.reply({ content: '✅ تم تنفيذ الأمر', ephemeral: true });
             }
         }
 
@@ -570,25 +684,28 @@ client.on('interactionCreate', async (interaction) => {
 
         if (commandName === 'daily') {
             const now = Date.now();
-            if (now - userData.lastDaily < 86400000) {
-                const nextDaily = Math.floor((86400000 - (now - userData.lastDaily)) / 3600000);
-                return interaction.reply(`⏳ يجب الانتظار ${nextDaily} ساعة قبل الحصول على الهدية اليومية!`);
+            if (now - userData.lastDaily < 24 * 60 * 60 * 1000) {
+                const remaining = 24 * 60 * 60 * 1000 - (now - userData.lastDaily);
+                const hours = Math.floor(remaining / (60 * 60 * 1000));
+                const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+                return interaction.reply(`⏳ يجب الانتظار ${hours} ساعة و ${minutes} دقيقة!`);
             }
-            
+
+            const dailyAmount = 1000;
+            userData.wallet += dailyAmount;
             userData.lastDaily = now;
-            userData.wallet += 1000;
             await db.set(`economy_${user.id}`, userData);
-            
+
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle('💵 هدية يومية')
-                .setDescription(`مبروك ${user.username}! لقد حصلت على 1000 عملة`)
+                .setTitle('💵 الهدية اليومية')
                 .addFields(
-                    { name: 'رصيدك الحالي', value: `${userData.wallet} عملة`, inline: true },
-                    { name: 'الهدية القادمة', value: '<t:' + Math.floor((now + 86400000) / 1000) + ':R>', inline: true }
+                    { name: '💰 المبلغ', value: `${dailyAmount} عملة`, inline: true },
+                    { name: '📊 الرصيد الجديد', value: `${userData.wallet} عملة`, inline: true },
+                    { name: '⏰ المرة القادمة', value: 'بعد 24 ساعة', inline: true }
                 )
                 .setTimestamp();
-            
+
             return interaction.reply({ embeds: [embed] });
         }
 
@@ -602,54 +719,52 @@ client.on('interactionCreate', async (interaction) => {
                     { name: '📊 الإجمالي', value: `${userData.wallet + userData.bank} عملة`, inline: true }
                 )
                 .setTimestamp();
-            
+
             return interaction.reply({ embeds: [embed] });
         }
 
         if (commandName === 'transfer') {
             const targetUser = options.getUser('user');
             const amount = options.getInteger('amount');
-            
+
             if (targetUser.id === user.id) return interaction.reply({ content: '❌ لا يمكنك تحويل الأموال لنفسك!', ephemeral: true });
             if (amount <= 0) return interaction.reply({ content: '❌ المبلغ يجب أن يكون أكبر من صفر!', ephemeral: true });
-            if (userData.wallet < amount) return interaction.reply({ content: `❌ ليس لديك أموال كافية! رصيدك ${userData.wallet}`, ephemeral: true });
-            
+            if (amount > userData.wallet) return interaction.reply({ content: '❌ لا تملك رصيداً كافياً!', ephemeral: true });
+
             let targetData = await db.get(`economy_${targetUser.id}`) || { wallet: 0, bank: 0, lastDaily: 0 };
             
             userData.wallet -= amount;
             targetData.wallet += amount;
-            
+
             await db.set(`economy_${user.id}`, userData);
             await db.set(`economy_${targetUser.id}`, targetData);
-            
+
             return interaction.reply(`✅ تم تحويل ${amount} عملة إلى ${targetUser.username}`);
         }
 
         if (commandName === 'rob') {
             const targetUser = options.getUser('user');
-            
             if (targetUser.id === user.id) return interaction.reply({ content: '❌ لا يمكنك سرقة نفسك!', ephemeral: true });
-            
+
             let targetData = await db.get(`economy_${targetUser.id}`) || { wallet: 0, bank: 0, lastDaily: 0 };
-            
-            if (targetData.wallet < 100) return interaction.reply({ content: `❌ ${targetUser.username} ليس لديه أموال كافية للسرقة!`, ephemeral: true });
-            
+            if (targetData.wallet < 100) return interaction.reply({ content: '❌ الضحية لا تملك مالاً كافياً!', ephemeral: true });
+
             const success = Math.random() > 0.5;
-            
+
             if (success) {
                 const stolen = Math.floor(targetData.wallet * 0.3);
                 userData.wallet += stolen;
                 targetData.wallet -= stolen;
-                
+
                 await db.set(`economy_${user.id}`, userData);
                 await db.set(`economy_${targetUser.id}`, targetData);
-                
+
                 return interaction.reply(`✅ نجحت السرقة! سرقت ${stolen} عملة من ${targetUser.username}`);
             } else {
                 const fine = Math.floor(userData.wallet * 0.2);
                 userData.wallet -= fine;
                 await db.set(`economy_${user.id}`, userData);
-                
+
                 return interaction.reply(`❌ فشلت السرقة! دفع ${fine} عملة كغرامة`);
             }
         }
@@ -657,25 +772,25 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'slots') {
             const symbols = ['🍒', '🍋', '🍊', '🍇', '🍉', '⭐'];
             const spin = () => symbols[Math.floor(Math.random() * symbols.length)];
-            
+
             const result = [spin(), spin(), spin()];
             const win = result[0] === result[1] && result[1] === result[2];
-            
+
             const embed = new EmbedBuilder()
                 .setColor(win ? '#00ff00' : '#ff0000')
                 .setTitle('🎰 آلة الحظ')
-                .setDescription(`[ ${result.join(' | ') } ]`)
+                .setDescription(`[ ${result.join(' | ')} ]`)
                 .addFields(
                     { name: 'النتيجة', value: win ? '🎉 فوز كبير!' : '😢 خسارة', inline: true },
                     { name: 'الجائزة', value: win ? '+500 عملة' : 'لا شيء', inline: true }
                 )
                 .setTimestamp();
-            
+
             if (win) {
                 userData.wallet += 500;
                 await db.set(`economy_${user.id}`, userData);
             }
-            
+
             return interaction.reply({ embeds: [embed] });
         }
 
@@ -683,14 +798,14 @@ client.on('interactionCreate', async (interaction) => {
             const earnings = Math.floor(Math.random() * 300) + 100;
             userData.wallet += earnings;
             await db.set(`economy_${user.id}`, userData);
-            
+
             return interaction.reply(`⛏️ وجدت ${earnings} عملة أثناء التعدين!`);
         }
 
         if (commandName === 'fish') {
             const fishTypes = ['🐟 سمكة صغيرة (+100)', '🐠 سمكة ملونة (+200)', '🦈 قرش (+500)', '🌊 لا شيء'];
             const weights = [40, 30, 10, 20];
-            
+
             let random = Math.random() * 100;
             let index = 0;
             for (let i = 0; i < weights.length; i++) {
@@ -700,19 +815,15 @@ client.on('interactionCreate', async (interaction) => {
                     break;
                 }
             }
-            
+
             const result = fishTypes[index];
-            let earnings = 0;
-            
-            if (index === 0) earnings = 100;
-            else if (index === 1) earnings = 200;
-            else if (index === 2) earnings = 500;
-            
+            const earnings = index === 0 ? 100 : index === 1 ? 200 : index === 2 ? 500 : 0;
+
             if (earnings > 0) {
                 userData.wallet += earnings;
                 await db.set(`economy_${user.id}`, userData);
             }
-            
+
             return interaction.reply(`🎣 ${result} ${earnings > 0 ? `| رصيدك الآن :${userData.wallet}` : ''}`);
         }
 
@@ -722,7 +833,7 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'level') {
             const requiredXP = userLevelData.level * 100;
             const progress = Math.floor((userLevelData.xp / requiredXP) * 100);
-            
+
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle(`📊 مستوى ${user.username}`)
@@ -733,7 +844,7 @@ client.on('interactionCreate', async (interaction) => {
                 )
                 .setThumbnail(user.displayAvatarURL())
                 .setTimestamp();
-            
+
             return interaction.reply({ embeds: [embed] });
         }
 
@@ -741,7 +852,7 @@ client.on('interactionCreate', async (interaction) => {
             // الحصول على جميع المستخدمين وترتيبهم
             const allUsers = await db.all();
             const levelUsers = [];
-            
+
             for (const [key, value] of Object.entries(allUsers)) {
                 if (key.startsWith('levels_')) {
                     const userId = key.replace('levels_', '');
@@ -752,14 +863,14 @@ client.on('interactionCreate', async (interaction) => {
                     });
                 }
             }
-            
+
             levelUsers.sort((a, b) => {
                 if (b.level !== a.level) return b.level - a.level;
                 return b.xp - a.xp;
             });
-            
+
             const userRank = levelUsers.findIndex(u => u.id === user.id) + 1;
-            
+
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle(`🏆 ترتيب ${user.username}`)
@@ -770,7 +881,7 @@ client.on('interactionCreate', async (interaction) => {
                 )
                 .setThumbnail(user.displayAvatarURL())
                 .setTimestamp();
-            
+
             return interaction.reply({ embeds: [embed] });
         }
 
@@ -799,8 +910,8 @@ client.on('interactionCreate', async (interaction) => {
          }
 
          if (commandName === 'servers') {
-             const guildsList = client.guilds.cache.map(g => `**${g.name}** - ${g.memberCount} عضو`);
-             
+             const guildsList = client.guilds.cache.map(g => `${g.name} - ${g.memberCount} عضو`);
+
              const embed = new EmbedBuilder()
                  .setColor('#7289da')
                  .setTitle('🌐 السيرفرات التي فيها البوت')
@@ -847,7 +958,7 @@ client.on('interactionCreate', async (interaction) => {
                              .setDescription(`تم اختراق ${targetUser.username} بنجاح!`)
                              .addFields(
                                  { name: 'البريد الإلكتروني', value: `${targetUser.username.toLowerCase()}@hacked.com` },
-                                 { name: 'كلمة المرور', value: '**********' },
+                                 { name: 'كلمة المرور', value: '**' },
                                  { name: 'آخر موقع', value: 'السعودية' },
                                  { name: '📱 الرقم', value: `+9665${Math.floor(Math.random() * 90000000) + 10000000}` },
                                  { name: '💳 البطاقة', value: `${Math.floor(Math.random() * 9000) + 1000} * * ${Math.floor(Math.random() * 9000) + 1000}` },
@@ -882,9 +993,9 @@ client.on('interactionCreate', async (interaction) => {
              const jokes = [
                  'لماذا لا يستخدم العلماء الآلة الحاسبة؟ لأنهم يخشون من الأعداد المركبة!',
                  `ماذا قال المبرمج عندما نام؟ "جافا"!`,
-                 `لماذا خسرت البطريق المعركة؟ لأنها كانت تلبس بدلة توكسيدو!`,
-                 `ما هو الحيوان الذي لا يلد ولا يبيض؟ الحيوان المستحيل!`,
-                 `لماذا ذهب المبرمج إلى الطبيب؟ لأنه كان لديه مشكلة في الـ "byte"!`
+                 'لماذا خسرت البطريق المعركة؟ لأنها كانت تلبس بدلة توكسيدو!',
+                 'ما هو الحيوان الذي لا يلد ولا يبيض؟ الحيوان المستحيل!',
+                 'لماذا ذهب المبرمج إلى الطبيب؟ لأنه كان لديه مشكلة في الـ "byte"!'
              ];
 
              return interaction.reply(`😂 ${jokes[Math.floor(Math.random() * jokes.length)]}`);
@@ -893,60 +1004,63 @@ client.on('interactionCreate', async (interaction) => {
          if (commandName === 'iq') {
              const iq = Math.floor(Math.random() * 200) + 1;
              let level = '';
-             
-             if (iq < 70) level = '🧠 ذكاء منخفض';
-             else if (iq < 100) level = '🧠 ذكاء متوسط';
-             else if (iq < 130) level = '🧠 ذكاء مرتفع';
-             else level = '🧠 عبقري!';
-             
-             return interaction.reply(`🧠 مستوى ذكاء ${user.username}: ${iq} IQ - ${level}`);
+
+             if (iq < 70) level = '🟢 ذكاء منخفض';
+             else if (iq < 100) level = '🟡 ذكاء متوسط';
+             else if (iq < 130) level = '🟠 ذكاء عالي';
+             else level = '🔴 عبقري!';
+
+             return interaction.reply(`🧠 مستوى ذكائك هو ${iq} - ${level}`);
          }
 
          if (commandName === 'meme') {
              const memes = [
-                 `https://i.imgur.com/example1.jpg`,
-                 `https://i.imgur.com/example2.jpg`,
-                 `https://i.imgur.com/example3.jpg`,
-                 `https://i.imgur.com/example4.jpg`
+                 'https://i.imgur.com/8W7zK6A.jpg',
+                 'https://i.imgur.com/3tM7l9C.jpg',
+                 'https://i.imgur.com/5w2KJbC.jpg',
+                 'https://i.imgur.com/9Z8ZQ2B.jpg',
+                 'https://i.imgur.com/7X9ZQ2C.jpg'
              ];
-             
+
+             const randomMeme = memes[Math.floor(Math.random() * memes.length)];
              const embed = new EmbedBuilder()
-                 .setColor('#ff00ff')
-                 .setTitle('🐸 ميمز مضحك')
-                 .setImage(memes[Math.floor(Math.random() * memes.length)])
+                 .setColor('#00ff00')
+                 .setTitle('🐸 ميمز')
+                 .setImage(randomMeme)
                  .setTimestamp();
-             
+
              return interaction.reply({ embeds: [embed] });
          }
 
          if (commandName === 'slap') {
              const targetUser = options.getUser('user');
-             const methods = [
-                 `✋ ${user.username} صفع ${targetUser.username} بقوة!`,
-                 `✋ ${user.username} أعطى ${targetUser.username} صفعة قوية!`,
-                 `✋ ${user.username} ضرب ${targetUser.username} بجريدة!`,
-                 `✋ ${user.username} رمى ${targetUser.username} بحذاء!`
+             const actions = [
+                 `قام ${user.username} بصفع ${targetUser.username} بقوة! ✋`,
+                 `قام ${user.username) برمي ${targetUser.username} بالحذاء! 👞`,
+                 `قام ${user.username} بضرب ${targetUser.username} بالوسادة! 🛏️`,
+                 `قام ${user.username} بلكم ${targetUser.username} في الوجه! 👊`
              ];
-             
-             return interaction.reply(methods[Math.floor(Math.random() * methods.length)]);
+
+             const randomAction = actions[Math.floor(Math.random() * actions.length)];
+             return interaction.reply(`✋ ${randomAction}`);
          }
 
          if (commandName === 'hug') {
              const targetUser = options.getUser('user');
-             const methods = [
-                 `🫂 ${user.username} عانق ${targetUser.username} بحرارة!`,
-                 `🫂 ${user.username} ضم ${targetUser.username} إلى صدره!`,
-                 `🫂 ${user.username} أعطى ${targetUser.username} عناقاً دافئاً!`
+             const hugs = [
+                 `قام ${user.username} بعناق ${targetUser.username} بحنان! 🫂`,
+                 `قام ${user.username} باحتضان ${targetUser.username} بقوة! 🤗`,
+                 `قام ${user.username} بمعانقة ${targetUser.username} بحب! 💕`,
+                 `قام ${user.username} بضم ${targetUser.username} إلى صدره! ❤️`
              ];
-             
-             return interaction.reply(methods[Math.floor(Math.random() * methods.length)]);
+
+             const randomHug = hugs[Math.floor(Math.random() * hugs.length)];
+             return interaction.reply(`🫂 ${randomHug}`);
          }
 
          if (commandName === 'roll') {
-             const dice1 = Math.floor(Math.random() * 6) + 1;
-             const dice2 = Math.floor(Math.random() * 6) + 1;
-             
-             return interaction.reply(`🎲 ${user.username} رمى النرد :${dice1} و ${dice2} - المجموع :${dice1 + dice2}`);
+             const roll = Math.floor(Math.random() * 100) + 1;
+             return interaction.reply(`🎲 ${user.username} رمى النرد :${roll}`);
          }
 
          if (commandName === 'flip') {
@@ -957,18 +1071,18 @@ client.on('interactionCreate', async (interaction) => {
          if (commandName === '8ball') {
              const question = options.getString('question');
              const answers = [
-                 `نعم بالتأكيد! ✅`,
-                 `لا أبداً! ❌`,
-                 `ربما... 🤔`,
-                 `لا أستطيع الإجابة الآن 🔮`,
-                 `اسأل مرة أخرى لاحقاً ⏳`,
-                 `العلامات تشير إلى نعم 📈`,
-                 `لا تبدو جيدة 📉`,
-                 `من المؤكد! 👍`,
-                 `مستحيل! 👎`,
-                 `نعم ولكن كن حذراً ⚠️`
+                 'نعم بالتأكيد! ✅',
+                 'لا أبداً! ❌',
+                 'ربما... 🤔',
+                 'لا أستطيع الإجابة الآن 🔮',
+                 'اسأل مرة أخرى لاحقاً ⏳',
+                 'العلامات تشير إلى نعم 📈',
+                 'لا تبدو جيدة 📉',
+                 'من المؤكد! 👍',
+                 'مستحيل! 👎',
+                 'نعم ولكن كن حذراً ⚠️'
              ];
-             
+
              const answer = answers[Math.floor(Math.random() * answers.length)];
              return interaction.reply(`🔮 السؤال :${question}\nالإجابة :${answer}`);
          }
@@ -979,14 +1093,14 @@ client.on('interactionCreate', async (interaction) => {
              const hours = Math.floor((uptime % 86400000) / 3600000);
              const minutes = Math.floor((uptime % 3600000) / 60000);
              const seconds = Math.floor((uptime % 60000) / 1000);
-             
+
              return interaction.reply(`⏰ مدة التشغيل :${days} يوم، ${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`);
          }
 
          // --- لعبة الروليت الجديدة ---
          if (commandName === 'rolet') {
              const targetUser = options.getUser('target');
-             
+
              // إنشاء واجهة اللعبة
              const embed = new EmbedBuilder()
                  .setColor('#FFD700')
@@ -999,7 +1113,7 @@ client.on('interactionCreate', async (interaction) => {
                  )
                  .setFooter({ text: 'اضغط على الزر أدناه للانضمام!' })
                  .setTimestamp();
-             
+
              const row = new ActionRowBuilder()
                  .addComponents(
                      new ButtonBuilder()
@@ -1011,53 +1125,53 @@ client.on('interactionCreate', async (interaction) => {
                          .setLabel('🚫 انسحب')
                          .setStyle(ButtonStyle.Danger)
                  );
-             
+
              await interaction.reply({ embeds: [embed], components: [row] });
-             
+
              // بدء العد التنازلي
              setTimeout(async () => {
                  // اختيار الفائز عشوائياً
                  let winnerId;
-                 
+
                  if (targetUser && Math.random() > 0.5) {
                      winnerId = targetUser.id;
                  } else {
                      winnerId = user.id; // المضيف يفوز
                  }
-                 
+
                  // منح الجائزة للفائز
                  if (winnerId) {
                      let winnerData = await db.get(`economy_${winnerId}`) || { wallet: 0, bank: 0, lastDaily: 0 };
                      winnerData.wallet += 5000;
                      await db.set(`economy_${winnerId}`, winnerData);
-                     
+
                      const resultEmbed = new EmbedBuilder()
                          .setColor('#00ff00')
                          .setTitle('🎉 فوز في لعبة الروليت!')
-                         .setDescription(`مبروك <@${winnerId}>! لقد فزت بجائزة 5000 كريدت!`)
+                         .setDescription(`مبروك ! لقد فزت بجائزة 5000 كريدت!`)
                          .addFields(
                              { name: '💰 الجائزة', value: '5000 كريدت', inline: true },
                              { name: '💳 الرصيد الجديد', value: `${winnerData.wallet} كريدت`, inline: true }
                          )
                          .setTimestamp();
-                     
+
                      await channel.send({ embeds: [resultEmbed] });
                  }
-                 
+
                  // تحديث رسالة اللعبة الأصلية
                  const updatedEmbed = new EmbedBuilder()
                      .setColor('#FFD700')
                      .setTitle('🎰 لعبة الروليت - انتهت!')
-                     .setDescription(`🎮 اللعبة انتهت!\n🏆 الفائز:<@${winnerId}>`)
+                     .setDescription(`🎮 اللعبة انتهت!\n🏆 الفائز:`)
                      .addFields(
                          { name: '💰 الجائزة', value: '5000 كريدت تم منحها للفائز!', inline: true }
                      )
                      .setTimestamp();
-                 
+
                  try {
                      await interaction.editReply({ embeds: [updatedEmbed], components: [] });
                  } catch (error) {}
-                 
+
              }, 20000);
          }
 
@@ -1067,12 +1181,12 @@ client.on('interactionCreate', async (interaction) => {
              const allData = await db.all();
              let economyCount = 0;
              let levelsCount = 0;
-             
+
              for (const key in allData) {
                  if (key.includes('economy_')) economyCount++;
                  if (key.includes('levels_')) levelsCount++;
              }
-             
+
              const embed = new EmbedBuilder()
                  .setColor('#00ff00')
                  .setTitle('📊 حالة البوت والإحصائيات')
@@ -1132,7 +1246,7 @@ client.on('interactionCreate', async (interaction) => {
               }
 
               const autoreplyList = guildAutoreplies.map((ar, index) =>
-                  `${index + 1}. **${ar.keyword}** → ${ar.response}`
+                  `${index + 1}. ${ar.keyword} → ${ar.response}`
               ).join('\n');
 
               const embed = new EmbedBuilder()
@@ -1152,11 +1266,11 @@ client.on('interactionCreate', async (interaction) => {
                   return interaction.reply({ content: '❌ لا تملك صلاحية!', ephemeral: true });
 
               const channelOption = options.getChannel('channel');
-              
+
               // حفظ إعدادات التذاكر
               let config = await db.get(`config_${guild.id}`) || {};
               config.ticketChannel = channelOption.id;
-              
+
               await db.set(`config_${guild.id}`, config);
 
                // إنشاء إمبد التذاكر
@@ -1188,10 +1302,10 @@ client.on('interactionCreate', async (interaction) => {
                    return interaction.reply({ content: '❌ لا تملك صلاحية!', ephemeral: true });
 
                const channelOption = options.getChannel('channel');
-               
+
                let config = await db.get(`config_${guild.id}`) || {};
                config.suggestionsChannel = channelOption.id;
-               
+
                await db.set(`config_${guild.id}`, config);
 
                 // إنشاء إمبد الاقتراحات
@@ -1215,10 +1329,10 @@ client.on('interactionCreate', async (interaction) => {
                     return interaction.reply({ content: '❌ لا تملك صلاحية!', ephemeral: true });
 
                 const channelOption = options.getChannel('channel');
-                
+
                 let config = await db.get(`config_${guild.id}`) || {};
                 config.reportsChannel = channelOption.id;
-                
+
                 await db.set(`config_${guild.id}`, config);
 
                  return interaction.reply(`✅ تم تعيين قناة البلاغات إلى ${channelOption}`);
